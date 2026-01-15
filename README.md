@@ -3,7 +3,7 @@
 > Battle-tested patterns extracted from production TypeScript/Next.js and Python/FastAPI applications.
 > Ship enterprise-grade features in hours, not weeks.
 
-**45 patterns** | **~170 hours total** | **Copy-paste ready**
+**49 patterns** | **~192 hours total** | **Copy-paste ready**
 
 ## What This Is
 
@@ -100,6 +100,7 @@ ls -la
 | [Design Tokens](06-frontend/DESIGN_TOKENS.md) | Systematic design system | 4h |
 | [PWA Setup](06-frontend/PWA_SETUP.md) | Manifest, icons, mobile meta | 2h |
 | [Mobile Components](06-frontend/MOBILE_COMPONENTS.md) | Bottom sheet, mobile nav | 3h |
+| [Fixed Timestep Game Loop](06-frontend/FIXED_TIMESTEP_GAME_LOOP.md) | Deterministic physics with interpolation | 4h |
 
 ### 📋 Data Contracts
 | Pattern | Description | Time |
@@ -143,6 +144,13 @@ ls -la
 | Pattern | Description | Time |
 |---------|-------------|------|
 | [Intelligent Cache](12-caching/INTELLIGENT_CACHE.md) | TTL by type, get-or-generate pattern | 5h |
+
+### 🎮 Realtime Multiplayer
+| Pattern | Description | Time |
+|---------|-------------|------|
+| [Atomic Matchmaking](13-realtime-multiplayer/ATOMIC_MATCHMAKING.md) | Two-phase commit for reliable match creation | 6h |
+| [WebSocket Connection Management](13-realtime-multiplayer/WEBSOCKET_CONNECTION_MANAGEMENT.md) | Capacity limits, health checks, user routing | 4h |
+| [Server-Authoritative Tick](13-realtime-multiplayer/SERVER_AUTHORITATIVE_TICK.md) | 60Hz game loop with lag compensation & anti-cheat | 8h |
 
 ---
 
