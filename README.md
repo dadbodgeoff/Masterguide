@@ -1,9 +1,9 @@
 # 48-Hour SaaS Patterns
 
-> Battle-tested patterns extracted from production TypeScript/Next.js applications.
+> Battle-tested patterns extracted from production TypeScript/Next.js and Python/FastAPI applications.
 > Ship enterprise-grade features in hours, not weeks.
 
-**38 patterns** | **~140 hours total** | **Copy-paste ready**
+**45 patterns** | **~170 hours total** | **Copy-paste ready**
 
 ## What This Is
 
@@ -11,7 +11,7 @@ A curated collection of **copy-paste-ready** patterns for building production Sa
 
 ## Philosophy
 
-1. **Real Code > Theory** - Every pattern includes working TypeScript
+1. **Real Code > Theory** - Every pattern includes working code
 2. **Minimal Dependencies** - Prefer stdlib and simple abstractions
 3. **Production-First** - Error handling, edge cases, and observability built-in
 4. **48-Hour Rule** - Each pattern should be implementable in under 48 hours
@@ -35,6 +35,7 @@ ls -la
 | [Monorepo Structure](00-foundations/MONOREPO_STRUCTURE.md) | Turborepo + pnpm workspace setup | 2h |
 | [TypeScript Strict](00-foundations/TYPESCRIPT_STRICT.md) | Strict mode, path aliases, shared types | 1h |
 | [Environment Config](00-foundations/ENVIRONMENT_CONFIG.md) | Multi-env config with validation | 1h |
+| [Feature Flags](00-foundations/FEATURE_FLAGS.md) | Phased deployment with instant rollback | 3h |
 
 ### 🔐 Authentication & Authorization
 | Pattern | Description | Time |
@@ -60,6 +61,9 @@ ls -la
 | [Leader Election](03-resilience/LEADER_ELECTION.md) | Single-writer coordination | 4h |
 | [Resilient Storage](03-resilience/RESILIENT_STORAGE.md) | Multi-backend failover | 6h |
 | [Graceful Shutdown](03-resilience/GRACEFUL_SHUTDOWN.md) | Clean shutdown with job tracking | 3h |
+| [Tier Rate Limiting](08-resilience/TIER_RATE_LIMITING.md) | Free/Premium/Enterprise with concurrent tracking | 5h |
+| [Distributed Locking (Python)](08-resilience/DISTRIBUTED_LOCKING.md) | Redis locks with ownership verification | 4h |
+| [Error Sanitization](08-resilience/ERROR_SANITIZATION.md) | Production-safe error handling | 3h |
 
 ### 📊 Data Pipeline
 | Pattern | Description | Time |
@@ -69,6 +73,8 @@ ls -la
 | [Deduplication](04-data-pipeline/DEDUPLICATION.md) | Canonical selection, reputation scoring | 4h |
 | [Geographic Clustering](04-data-pipeline/GEOGRAPHIC_CLUSTERING.md) | Grid-based clustering, medoid finding | 5h |
 | [Snapshot Aggregation](04-data-pipeline/SNAPSHOT_AGGREGATION.md) | Daily compression, merge logic | 4h |
+| [Secure Upload Pipeline](04-data-pipeline/SECURE_UPLOAD_PIPELINE.md) | Validation → Malware scan → Dedup → Storage | 6h |
+| [Batch Processing](04-data-pipeline/BATCH_PROCESSING.md) | 30-40% throughput improvement pattern | 4h |
 
 ### ⚙️ Background Jobs
 | Pattern | Description | Time |
@@ -128,6 +134,11 @@ ls -la
 |---------|-------------|------|
 | [Email Service](11-notifications/EMAIL_SERVICE.md) | SendGrid with daily caps, per-user limits | 4h |
 
+### 🔍 Fuzzy Matching
+| Pattern | Description | Time |
+|---------|-------------|------|
+| [Multi-Stage Matching](11-fuzzy-matching/MULTI_STAGE_MATCHING.md) | 3-stage pipeline: PostgreSQL trigram → salient overlap → weighted similarity | 8h |
+
 ### 💾 Caching
 | Pattern | Description | Time |
 |---------|-------------|------|
@@ -138,13 +149,27 @@ ls -la
 ## Tech Stack Assumptions
 
 These patterns assume:
-- **Runtime**: Node.js 20+
-- **Language**: TypeScript 5+ (strict mode)
-- **Framework**: Next.js 14+ (App Router)
+- **Runtime**: Node.js 20+ / Python 3.11+
+- **Language**: TypeScript 5+ (strict mode) / Python with type hints
+- **Framework**: Next.js 14+ (App Router) / FastAPI
 - **Database**: PostgreSQL (via Supabase)
 - **Cache**: Redis (optional, patterns degrade gracefully)
-- **Package Manager**: pnpm
-- **Monorepo**: Turborepo
+- **Package Manager**: pnpm / pip
+- **Monorepo**: Turborepo (optional)
+
+## New Patterns (Python/FastAPI)
+
+The following patterns were extracted from production Python/FastAPI applications:
+
+| Pattern | Source | Key Features |
+|---------|--------|--------------|
+| [Feature Flags](00-foundations/FEATURE_FLAGS.md) | RestaurantIQ | Phased deployment, beta users, instant rollback |
+| [Secure Upload Pipeline](04-data-pipeline/SECURE_UPLOAD_PIPELINE.md) | RestaurantIQ | ClamAV malware scan, hash dedup, race protection |
+| [Batch Processing](04-data-pipeline/BATCH_PROCESSING.md) | RestaurantIQ | 30-40% throughput improvement, fallback to sequential |
+| [Tier Rate Limiting](08-resilience/TIER_RATE_LIMITING.md) | RestaurantIQ | Free/Premium/Enterprise, concurrent tracking |
+| [Distributed Locking](08-resilience/DISTRIBUTED_LOCKING.md) | RestaurantIQ | Redis SET NX, ownership verification |
+| [Error Sanitization](08-resilience/ERROR_SANITIZATION.md) | RestaurantIQ | Log everything, expose nothing |
+| [Multi-Stage Matching](11-fuzzy-matching/MULTI_STAGE_MATCHING.md) | RestaurantIQ | PostgreSQL trigram + weighted similarity |
 
 ## Contributing
 
