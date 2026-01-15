@@ -1,9 +1,36 @@
-# 48-Hour SaaS Patterns
+# Masterguide: Production SaaS Patterns
 
 > Battle-tested patterns extracted from production TypeScript/Next.js and Python/FastAPI applications.
 > Ship enterprise-grade features in hours, not weeks.
 
 **49 patterns** | **~192 hours total** | **Copy-paste ready**
+
+## 🚀 Automated Scaffolding (NEW)
+
+**For AI Agents**: The [scaffolding/](scaffolding/) directory contains a sequential execution system that scaffolds enterprise-grade infrastructure **before** you know what you're building.
+
+```bash
+# AI agents: Execute documents 01-11 in order
+# Each document creates working, production-ready code
+# Total time: ~2 hours for complete foundation
+```
+
+**What it creates**:
+- Monorepo with Turborepo + pnpm
+- Type-safe environment validation
+- Shared types and exception taxonomy
+- Database schema with RLS policies
+- Auth infrastructure with JWT and tier entitlements
+- Resilience patterns (circuit breakers, retries, locks)
+- Job processing system with state machine
+- API foundation with rate limiting
+- Structured logging and metrics
+- Stripe integration and webhook handling
+- Design tokens and base components
+
+See [scaffolding/00-MANIFEST.md](scaffolding/00-MANIFEST.md) to get started.
+
+---
 
 ## What This Is
 
@@ -21,136 +48,188 @@ A curated collection of **copy-paste-ready** patterns for building production Sa
 ```bash
 # Clone and explore
 git clone <repo>
-cd saas-patterns
+cd Masterguide
 
-# Patterns are organized by domain
-ls -la
+# See the full index
+cat INDEX.md
+
+# For automated scaffolding, see:
+cat scaffolding/00-MANIFEST.md
 ```
 
-## Pattern Index
+## Repository Structure
 
-### 🏗️ Foundations
-| Pattern | Description | Time |
-|---------|-------------|------|
-| [Monorepo Structure](00-foundations/MONOREPO_STRUCTURE.md) | Turborepo + pnpm workspace setup | 2h |
-| [TypeScript Strict](00-foundations/TYPESCRIPT_STRICT.md) | Strict mode, path aliases, shared types | 1h |
-| [Environment Config](00-foundations/ENVIRONMENT_CONFIG.md) | Multi-env config with validation | 1h |
-| [Feature Flags](00-foundations/FEATURE_FLAGS.md) | Phased deployment with instant rollback | 3h |
+```
+Masterguide/
+├── scaffolding/         # 🆕 Sequential scaffolding for AI agents
+├── 00-foundations/      # Environment, TypeScript, Monorepo, Feature Flags
+├── 01-auth/             # Authentication, Authorization, RLS
+├── 02-database/         # Migrations, Schema Management
+├── 03-resilience/       # Circuit Breakers, Retries, Graceful Degradation
+├── 04-workers/          # Background Jobs, Orchestration, DLQ
+├── 05-data-pipeline/    # Batch Processing, ETL, Validation
+├── 06-api/              # API Design, Idempotency, Rate Limiting
+├── 07-realtime/         # SSE, WebSockets, Multiplayer
+├── 08-frontend/         # Design Tokens, Mobile, PWA
+├── 09-observability/    # Metrics, Health, Anomaly Detection
+├── 10-integrations/     # Stripe, OAuth, Webhooks, Email
+├── 11-ai/               # Prompt Engine, Provenance, Coaching
+├── 12-caching/          # Intelligent Cache
+├── 13-data-processing/  # Fuzzy Matching, Scoring, Analytics
+├── INDEX.md             # Full searchable index
+├── PATTERN_TEMPLATE.md  # Template for new patterns
+└── README.md            # This file
+```
 
-### 🔐 Authentication & Authorization
-| Pattern | Description | Time |
-|---------|-------------|------|
-| [Supabase Auth](01-auth/SUPABASE_AUTH.md) | Email/password with SSR sessions | 4h |
-| [Middleware Protection](01-auth/MIDDLEWARE_PROTECTION.md) | Route protection with Next.js middleware | 2h |
-| [Tier Entitlements](01-auth/TIER_ENTITLEMENTS.md) | Free/Pro feature gating | 3h |
-| [Row Level Security](01-auth/ROW_LEVEL_SECURITY.md) | Postgres RLS policies | 2h |
-| [JWT Refresh Rotation](01-auth/JWT_REFRESH_ROTATION.md) | Token rotation with reuse detection | 5h |
+## Pattern Categories
 
-### 🗄️ Database
-| Pattern | Description | Time |
-|---------|-------------|------|
-| [Migration Patterns](02-database/MIGRATIONS.md) | Safe schema evolution | 2h |
+### 🏗️ 00-foundations (4 patterns)
+Core setup patterns for any project.
 
-### 🛡️ Resilience (The Crown Jewels)
-| Pattern | Description | Time |
-|---------|-------------|------|
-| [Circuit Breaker](03-resilience/CIRCUIT_BREAKER.md) | Prevent cascade failures | 4h |
-| [Distributed Locking](03-resilience/DISTRIBUTED_LOCK.md) | Coordinate across instances | 4h |
-| [Backpressure](03-resilience/BACKPRESSURE.md) | Memory-safe buffering | 8h |
-| [Retry & Fallback](03-resilience/RETRY_FALLBACK.md) | Graceful degradation | 3h |
-| [Leader Election](03-resilience/LEADER_ELECTION.md) | Single-writer coordination | 4h |
-| [Resilient Storage](03-resilience/RESILIENT_STORAGE.md) | Multi-backend failover | 6h |
-| [Graceful Shutdown](03-resilience/GRACEFUL_SHUTDOWN.md) | Clean shutdown with job tracking | 3h |
-| [Tier Rate Limiting](08-resilience/TIER_RATE_LIMITING.md) | Free/Premium/Enterprise with concurrent tracking | 5h |
-| [Distributed Locking (Python)](08-resilience/DISTRIBUTED_LOCKING.md) | Redis locks with ownership verification | 4h |
-| [Error Sanitization](08-resilience/ERROR_SANITIZATION.md) | Production-safe error handling | 3h |
+| Pattern | Time | Description |
+|---------|------|-------------|
+| [ENVIRONMENT_CONFIG](00-foundations/ENVIRONMENT_CONFIG.md) | 2h | Environment variable management |
+| [TYPESCRIPT_STRICT](00-foundations/TYPESCRIPT_STRICT.md) | 1h | Strict TypeScript configuration |
+| [MONOREPO_STRUCTURE](00-foundations/MONOREPO_STRUCTURE.md) | 4h | Turborepo/pnpm workspace setup |
+| [FEATURE_FLAGS](00-foundations/FEATURE_FLAGS.md) | 3h | Feature flag system |
 
-### 📊 Data Pipeline
-| Pattern | Description | Time |
-|---------|-------------|------|
-| [Validation & Quarantine](04-data-pipeline/VALIDATION_QUARANTINE.md) | Quality scoring, suspicious data isolation | 4h |
-| [Checkpoint & Resume](04-data-pipeline/CHECKPOINT_RESUME.md) | Exactly-once file processing | 4h |
-| [Deduplication](04-data-pipeline/DEDUPLICATION.md) | Canonical selection, reputation scoring | 4h |
-| [Geographic Clustering](04-data-pipeline/GEOGRAPHIC_CLUSTERING.md) | Grid-based clustering, medoid finding | 5h |
-| [Snapshot Aggregation](04-data-pipeline/SNAPSHOT_AGGREGATION.md) | Daily compression, merge logic | 4h |
-| [Secure Upload Pipeline](04-data-pipeline/SECURE_UPLOAD_PIPELINE.md) | Validation → Malware scan → Dedup → Storage | 6h |
-| [Batch Processing](04-data-pipeline/BATCH_PROCESSING.md) | 30-40% throughput improvement pattern | 4h |
+### 🔐 01-auth (5 patterns)
+Authentication and authorization.
 
-### ⚙️ Background Jobs
-| Pattern | Description | Time |
-|---------|-------------|------|
-| [Worker Orchestration](04-workers/ORCHESTRATION.md) | Manage concurrent workers | 4h |
-| [Dead Letter Queue](04-workers/DEAD_LETTER_QUEUE.md) | Failed job storage & replay | 3h |
+| Pattern | Time | Description |
+|---------|------|-------------|
+| [SUPABASE_AUTH](01-auth/SUPABASE_AUTH.md) | 4h | Supabase authentication |
+| [JWT_REFRESH_ROTATION](01-auth/JWT_REFRESH_ROTATION.md) | 3h | Secure token rotation |
+| [MIDDLEWARE_PROTECTION](01-auth/MIDDLEWARE_PROTECTION.md) | 2h | Route protection |
+| [ROW_LEVEL_SECURITY](01-auth/ROW_LEVEL_SECURITY.md) | 4h | PostgreSQL RLS |
+| [TIER_ENTITLEMENTS](01-auth/TIER_ENTITLEMENTS.md) | 3h | Subscription feature gating |
 
-### 🔌 API Design
-| Pattern | Description | Time |
-|---------|-------------|------|
-| [Idempotency](05-api-design/IDEMPOTENCY.md) | Prevent duplicate operations | 3h |
-| [API Client](05-api-design/API_CLIENT.md) | Typed client with auto-refresh | 5h |
+### 🗄️ 02-database (1 pattern)
+Database management.
 
-### 📡 Realtime
-| Pattern | Description | Time |
-|---------|-------------|------|
-| [SSE Streaming](05-realtime/SSE_STREAMING.md) | Server-sent events in Next.js | 3h |
-| [SSE Resilience](05-realtime/SSE_RESILIENCE.md) | Orphan detection & recovery | 7h |
+| Pattern | Time | Description |
+|---------|------|-------------|
+| [MIGRATIONS](02-database/MIGRATIONS.md) | 2h | Safe migration patterns |
 
-### 🎨 Frontend
-| Pattern | Description | Time |
-|---------|-------------|------|
-| [Design Tokens](06-frontend/DESIGN_TOKENS.md) | Systematic design system | 4h |
-| [PWA Setup](06-frontend/PWA_SETUP.md) | Manifest, icons, mobile meta | 2h |
-| [Mobile Components](06-frontend/MOBILE_COMPONENTS.md) | Bottom sheet, mobile nav | 3h |
-| [Fixed Timestep Game Loop](06-frontend/FIXED_TIMESTEP_GAME_LOOP.md) | Deterministic physics with interpolation | 4h |
+### 🛡️ 03-resilience (10 patterns)
+Fault tolerance and graceful degradation.
 
-### 📋 Data Contracts
-| Pattern | Description | Time |
-|---------|-------------|------|
-| [Transformers](07-data-contracts/TRANSFORMERS.md) | Centralized data transformation | 2h |
+| Pattern | Time | Description |
+|---------|------|-------------|
+| [CIRCUIT_BREAKER](03-resilience/CIRCUIT_BREAKER.md) | 4h | Prevent cascade failures |
+| [RETRY_FALLBACK](03-resilience/RETRY_FALLBACK.md) | 2h | Exponential backoff |
+| [BACKPRESSURE](03-resilience/BACKPRESSURE.md) | 4h | Buffer management |
+| [DISTRIBUTED_LOCK](03-resilience/DISTRIBUTED_LOCK.md) | 3h | Redis-based locking |
+| [DISTRIBUTED_LOCKING](03-resilience/DISTRIBUTED_LOCKING.md) | 3h | Async context manager |
+| [GRACEFUL_SHUTDOWN](03-resilience/GRACEFUL_SHUTDOWN.md) | 3h | Clean shutdown |
+| [LEADER_ELECTION](03-resilience/LEADER_ELECTION.md) | 4h | Single-leader coordination |
+| [RESILIENT_STORAGE](03-resilience/RESILIENT_STORAGE.md) | 6h | Multi-backend failover |
+| [ERROR_SANITIZATION](03-resilience/ERROR_SANITIZATION.md) | 2h | Safe error messages |
+| [EXCEPTION_TAXONOMY](03-resilience/EXCEPTION_TAXONOMY.md) | 2h | Exception hierarchy |
 
-### ⏱️ Rate Limiting
-| Pattern | Description | Time |
-|---------|-------------|------|
-| [Tier Rate Limits](07-rate-limiting/TIER_RATE_LIMITS.md) | Sliding window with tier-based limits | 5h |
+### ⚙️ 04-workers (4 patterns)
+Background job processing.
 
-### 📊 Observability
-| Pattern | Description | Time |
-|---------|-------------|------|
-| [Metrics Collection](08-observability/METRICS.md) | Prometheus-compatible metrics | 3h |
-| [Anomaly Detection](08-observability/ANOMALY_DETECTION.md) | Rule-based detection with cooldowns | 4h |
-| [Health Monitoring](08-observability/HEALTH_MONITORING.md) | Heartbeat tracking, failure rates | 4h |
+| Pattern | Time | Description |
+|---------|------|-------------|
+| [ORCHESTRATION](04-workers/ORCHESTRATION.md) | 4h | Worker coordination |
+| [DEAD_LETTER_QUEUE](04-workers/DEAD_LETTER_QUEUE.md) | 3h | Failed job handling |
+| [JOB_STATE_MACHINE](04-workers/JOB_STATE_MACHINE.md) | 4h | Job lifecycle |
+| [BACKGROUND_JOB_PROCESSING](04-workers/BACKGROUND_JOB_PROCESSING.md) | 4h | General job patterns |
 
-### 🔔 Webhooks
-| Pattern | Description | Time |
-|---------|-------------|------|
-| [Webhook Security](09-webhooks/WEBHOOK_SECURITY.md) | Idempotency & replay attack prevention | 5h |
+### 📊 05-data-pipeline (7 patterns)
+Data processing and ETL.
 
-### 🤖 AI Patterns
-| Pattern | Description | Time |
-|---------|-------------|------|
-| [Prompt Engine](10-ai/PROMPT_ENGINE.md) | Template-based prompts with brand injection | 5h |
-| [Provenance Audit](10-ai/PROVENANCE_AUDIT.md) | AI decision audit trail & explainability | 7h |
+| Pattern | Time | Description |
+|---------|------|-------------|
+| [BATCH_PROCESSING](05-data-pipeline/BATCH_PROCESSING.md) | 4h | Batched DB operations |
+| [CHECKPOINT_RESUME](05-data-pipeline/CHECKPOINT_RESUME.md) | 4h | Exactly-once processing |
+| [DEDUPLICATION](05-data-pipeline/DEDUPLICATION.md) | 4h | Event deduplication |
+| [GEOGRAPHIC_CLUSTERING](05-data-pipeline/GEOGRAPHIC_CLUSTERING.md) | 5h | Geo clustering |
+| [SECURE_UPLOAD_PIPELINE](05-data-pipeline/SECURE_UPLOAD_PIPELINE.md) | 6h | File upload with scanning |
+| [SNAPSHOT_AGGREGATION](05-data-pipeline/SNAPSHOT_AGGREGATION.md) | 4h | Daily snapshots |
+| [VALIDATION_QUARANTINE](05-data-pipeline/VALIDATION_QUARANTINE.md) | 4h | Data validation |
 
-### 📧 Notifications
-| Pattern | Description | Time |
-|---------|-------------|------|
-| [Email Service](11-notifications/EMAIL_SERVICE.md) | SendGrid with daily caps, per-user limits | 4h |
+### 🔌 06-api (5 patterns)
+API design and client patterns.
 
-### 🔍 Fuzzy Matching
-| Pattern | Description | Time |
-|---------|-------------|------|
-| [Multi-Stage Matching](11-fuzzy-matching/MULTI_STAGE_MATCHING.md) | 3-stage pipeline: PostgreSQL trigram → salient overlap → weighted similarity | 8h |
+| Pattern | Time | Description |
+|---------|------|-------------|
+| [API_CLIENT](06-api/API_CLIENT.md) | 3h | Type-safe API client |
+| [IDEMPOTENCY](06-api/IDEMPOTENCY.md) | 4h | Idempotent operations |
+| [TIER_RATE_LIMITS](06-api/TIER_RATE_LIMITS.md) | 4h | Subscription rate limiting |
+| [TIER_RATE_LIMITING](06-api/TIER_RATE_LIMITING.md) | 4h | Python rate limiting |
+| [TRANSFORMERS](06-api/TRANSFORMERS.md) | 2h | Data transformation |
 
-### 💾 Caching
-| Pattern | Description | Time |
-|---------|-------------|------|
-| [Intelligent Cache](12-caching/INTELLIGENT_CACHE.md) | TTL by type, get-or-generate pattern | 5h |
+### 📡 07-realtime (5 patterns)
+Real-time communication.
 
-### 🎮 Realtime Multiplayer
-| Pattern | Description | Time |
-|---------|-------------|------|
-| [Atomic Matchmaking](13-realtime-multiplayer/ATOMIC_MATCHMAKING.md) | Two-phase commit for reliable match creation | 6h |
-| [WebSocket Connection Management](13-realtime-multiplayer/WEBSOCKET_CONNECTION_MANAGEMENT.md) | Capacity limits, health checks, user routing | 4h |
-| [Server-Authoritative Tick](13-realtime-multiplayer/SERVER_AUTHORITATIVE_TICK.md) | 60Hz game loop with lag compensation & anti-cheat | 8h |
+| Pattern | Time | Description |
+|---------|------|-------------|
+| [SSE_STREAMING](07-realtime/SSE_STREAMING.md) | 3h | Server-Sent Events |
+| [SSE_RESILIENCE](07-realtime/SSE_RESILIENCE.md) | 3h | Resilient SSE |
+| [WEBSOCKET_CONNECTION_MANAGEMENT](07-realtime/WEBSOCKET_CONNECTION_MANAGEMENT.md) | 4h | WebSocket lifecycle |
+| [ATOMIC_MATCHMAKING](07-realtime/ATOMIC_MATCHMAKING.md) | 6h | Race-free matchmaking |
+| [SERVER_AUTHORITATIVE_TICK](07-realtime/SERVER_AUTHORITATIVE_TICK.md) | 8h | Game server loop |
+
+### 🎨 08-frontend (5 patterns)
+Frontend architecture.
+
+| Pattern | Time | Description |
+|---------|------|-------------|
+| [DESIGN_TOKENS](08-frontend/DESIGN_TOKENS.md) | 4h | Design token system |
+| [DESIGN_TOKEN_SYSTEM](08-frontend/DESIGN_TOKEN_SYSTEM.md) | 4h | Comprehensive tokens |
+| [MOBILE_COMPONENTS](08-frontend/MOBILE_COMPONENTS.md) | 3h | Mobile-first components |
+| [PWA_SETUP](08-frontend/PWA_SETUP.md) | 2h | Progressive Web App |
+| [FIXED_TIMESTEP_GAME_LOOP](08-frontend/FIXED_TIMESTEP_GAME_LOOP.md) | 4h | Deterministic game loop |
+
+### 📊 09-observability (5 patterns)
+Monitoring and alerting.
+
+| Pattern | Time | Description |
+|---------|------|-------------|
+| [METRICS](09-observability/METRICS.md) | 3h | Prometheus metrics |
+| [HEALTH_MONITORING](09-observability/HEALTH_MONITORING.md) | 4h | Worker health |
+| [ANOMALY_DETECTION](09-observability/ANOMALY_DETECTION.md) | 5h | Anomaly detection |
+| [LOGGING_OBSERVABILITY](09-observability/LOGGING_OBSERVABILITY.md) | 3h | Structured logging |
+| [FILE_STORAGE](09-observability/FILE_STORAGE.md) | 3h | File storage tracking |
+
+### 🔗 10-integrations (4 patterns)
+Third-party integrations.
+
+| Pattern | Time | Description |
+|---------|------|-------------|
+| [STRIPE_INTEGRATION](10-integrations/STRIPE_INTEGRATION.md) | 6h | Stripe payments |
+| [OAUTH_INTEGRATION](10-integrations/OAUTH_INTEGRATION.md) | 4h | OAuth providers |
+| [WEBHOOK_SECURITY](10-integrations/WEBHOOK_SECURITY.md) | 4h | Secure webhooks |
+| [EMAIL_SERVICE](10-integrations/EMAIL_SERVICE.md) | 4h | SendGrid email |
+
+### 🤖 11-ai (4 patterns)
+AI/ML integration.
+
+| Pattern | Time | Description |
+|---------|------|-------------|
+| [PROMPT_ENGINE](11-ai/PROMPT_ENGINE.md) | 4h | Prompt management |
+| [PROVENANCE_AUDIT](11-ai/PROVENANCE_AUDIT.md) | 6h | AI audit trail |
+| [AI_COACHING_SYSTEM](11-ai/AI_COACHING_SYSTEM.md) | 8h | AI coaching |
+| [AI_GENERATION_CLIENT](11-ai/AI_GENERATION_CLIENT.md) | 4h | AI client wrapper |
+
+### 💾 12-caching (1 pattern)
+Caching strategies.
+
+| Pattern | Time | Description |
+|---------|------|-------------|
+| [INTELLIGENT_CACHE](12-caching/INTELLIGENT_CACHE.md) | 4h | Smart caching |
+
+### 📈 13-data-processing (4 patterns)
+Data processing and analysis.
+
+| Pattern | Time | Description |
+|---------|------|-------------|
+| [MULTI_STAGE_MATCHING](13-data-processing/MULTI_STAGE_MATCHING.md) | 5h | Fuzzy matching |
+| [SCORING_ENGINE](13-data-processing/SCORING_ENGINE.md) | 4h | Scoring system |
+| [ANALYTICS_PIPELINE](13-data-processing/ANALYTICS_PIPELINE.md) | 6h | Analytics pipeline |
+| [COMMUNITY_FEED](13-data-processing/COMMUNITY_FEED.md) | 4h | Social feed |
 
 ---
 
@@ -163,21 +242,13 @@ These patterns assume:
 - **Database**: PostgreSQL (via Supabase)
 - **Cache**: Redis (optional, patterns degrade gracefully)
 - **Package Manager**: pnpm / pip
-- **Monorepo**: Turborepo (optional)
 
-## New Patterns (Python/FastAPI)
+## Full Index
 
-The following patterns were extracted from production Python/FastAPI applications:
-
-| Pattern | Source | Key Features |
-|---------|--------|--------------|
-| [Feature Flags](00-foundations/FEATURE_FLAGS.md) | RestaurantIQ | Phased deployment, beta users, instant rollback |
-| [Secure Upload Pipeline](04-data-pipeline/SECURE_UPLOAD_PIPELINE.md) | RestaurantIQ | ClamAV malware scan, hash dedup, race protection |
-| [Batch Processing](04-data-pipeline/BATCH_PROCESSING.md) | RestaurantIQ | 30-40% throughput improvement, fallback to sequential |
-| [Tier Rate Limiting](08-resilience/TIER_RATE_LIMITING.md) | RestaurantIQ | Free/Premium/Enterprise, concurrent tracking |
-| [Distributed Locking](08-resilience/DISTRIBUTED_LOCKING.md) | RestaurantIQ | Redis SET NX, ownership verification |
-| [Error Sanitization](08-resilience/ERROR_SANITIZATION.md) | RestaurantIQ | Log everything, expose nothing |
-| [Multi-Stage Matching](11-fuzzy-matching/MULTI_STAGE_MATCHING.md) | RestaurantIQ | PostgreSQL trigram + weighted similarity |
+See [INDEX.md](INDEX.md) for:
+- Complete pattern listing with descriptions
+- Use-case based navigation
+- Cross-references between patterns
 
 ## Contributing
 

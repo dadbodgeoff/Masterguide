@@ -1,0 +1,209 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Scaffold Configuration",
+  "description": "Configuration for the enterprise SaaS scaffolding system",
+  "type": "object",
+  "required": ["projectName", "auth", "database"],
+  "properties": {
+    "projectName": {
+      "type": "string",
+      "description": "Name of your project (lowercase, no spaces)",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "examples": ["my-saas", "acme-platform"]
+    },
+    "projectDisplayName": {
+      "type": "string",
+      "description": "Human-readable project name",
+      "examples": ["My SaaS", "Acme Platform"]
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief description of your SaaS"
+    },
+    "auth": {
+      "type": "object",
+      "required": ["provider"],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": ["supabase", "clerk", "custom"],
+          "default": "supabase",
+          "description": "Authentication provider"
+        },
+        "oauthProviders": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["google", "github", "discord", "twitter", "apple"]
+          },
+          "default": ["google", "github"],
+          "description": "OAuth providers to configure"
+        },
+        "magicLink": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable magic link authentication"
+        }
+      }
+    },
+    "database": {
+      "type": "object",
+      "required": ["provider"],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": ["supabase", "planetscale", "neon", "custom"],
+          "default": "supabase",
+          "description": "Database provider"
+        },
+        "enableRLS": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Row Level Security (Supabase only)"
+        },
+        "enableRealtime": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable realtime subscriptions"
+        }
+      }
+    },
+    "payments": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "provider": {
+          "type": "string",
+          "enum": ["stripe", "lemonsqueezy", "paddle", "none"],
+          "default": "stripe"
+        },
+        "tiers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name"],
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "monthlyLimit": { "type": "integer", "default": -1 },
+              "features": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "default": [
+            { "id": "free", "name": "Free", "monthlyLimit": 10, "features": ["basic"] },
+            { "id": "pro", "name": "Pro", "monthlyLimit": 100, "features": ["basic", "advanced"] },
+            { "id": "studio", "name": "Studio", "monthlyLimit": 500, "features": ["basic", "advanced", "api"] },
+            { "id": "enterprise", "name": "Enterprise", "monthlyLimit": -1, "features": ["basic", "advanced", "api", "custom"] }
+          ]
+        }
+      }
+    },
+    "email": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "provider": {
+          "type": "string",
+          "enum": ["sendgrid", "resend", "postmark", "ses", "none"],
+          "default": "sendgrid"
+        }
+      }
+    },
+    "features": {
+      "type": "object",
+      "properties": {
+        "workers": {
+          "type": "boolean",
+          "default": true,
+          "description": "Background job processing system"
+        },
+        "ai": {
+          "type": "boolean",
+          "default": false,
+          "description": "AI/LLM integration scaffolding"
+        },
+        "fileUpload": {
+          "type": "boolean",
+          "default": true,
+          "description": "File upload and storage"
+        },
+        "analytics": {
+          "type": "boolean",
+          "default": false,
+          "description": "Analytics tracking setup"
+        },
+        "i18n": {
+          "type": "boolean",
+          "default": false,
+          "description": "Internationalization support"
+        }
+      }
+    },
+    "api": {
+      "type": "object",
+      "properties": {
+        "style": {
+          "type": "string",
+          "enum": ["rest", "graphql", "trpc"],
+          "default": "rest"
+        },
+        "versioning": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable API versioning (/api/v1/...)"
+        },
+        "rateLimit": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "requestsPerMinute": { "type": "integer", "default": 60 }
+          }
+        }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "properties": {
+        "frontend": {
+          "type": "string",
+          "enum": ["vercel", "netlify", "cloudflare", "aws", "self-hosted"],
+          "default": "vercel"
+        },
+        "backend": {
+          "type": "string",
+          "enum": ["railway", "render", "fly", "aws", "self-hosted"],
+          "default": "railway"
+        },
+        "containerize": {
+          "type": "boolean",
+          "default": true,
+          "description": "Generate Dockerfile and docker-compose"
+        }
+      }
+    },
+    "scaffoldOptions": {
+      "type": "object",
+      "properties": {
+        "skipPhases": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1, "maximum": 11 },
+          "default": [],
+          "description": "Phase numbers to skip"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "Preview what would be created without writing files"
+        },
+        "verbose": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show detailed output during scaffolding"
+        }
+      }
+    }
+  }
+}

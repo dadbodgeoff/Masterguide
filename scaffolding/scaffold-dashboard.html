@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scaffold Dashboard</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-card: #1e293b;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --success: #22c55e;
+      --error: #ef4444;
+      --warning: #f59e0b;
+      --info: #3b82f6;
+      --pending: #64748b;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .subtitle {
+      color: var(--text-muted);
+    }
+    
+    .status-banner {
+      background: var(--bg-card);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      border: 1px solid var(--border);
+    }
+    
+    .status-banner.completed { border-color: var(--success); }
+    .status-banner.failed { border-color: var(--error); }
+    .status-banner.in_progress { border-color: var(--info); }
+    
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    
+    .status-label {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .status-value {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+    
+    .status-value.completed { color: var(--success); }
+    .status-value.failed { color: var(--error); }
+    .status-value.in_progress { color: var(--info); }
+    .status-value.not_started { color: var(--pending); }
+    
+    .progress-container {
+      margin-top: 1.5rem;
+    }
+    
+    .progress-bar {
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--info), var(--success));
+      transition: width 0.3s ease;
+    }
+    
+    .progress-text {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 0.5rem;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+    
+    .phases-grid {
+      display: grid;
+      gap: 0.75rem;
+    }
+    
+    .phase-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    
+    .phase-card.completed { border-left: 3px solid var(--success); }
+    .phase-card.failed { border-left: 3px solid var(--error); }
+    .phase-card.in_progress { border-left: 3px solid var(--info); }
+    .phase-card.skipped { border-left: 3px solid var(--warning); opacity: 0.7; }
+    .phase-card.pending { border-left: 3px solid var(--pending); opacity: 0.6; }
+    
+    .phase-icon {
+      font-size: 1.25rem;
+      width: 2rem;
+      text-align: center;
+    }
+    
+    .phase-info {
+      flex: 1;
+    }
+    
+    .phase-name {
+      font-weight: 500;
+    }
+    
+    .phase-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+    
+    .phase-status {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      font-weight: 500;
+    }
+    
+    .phase-status.completed { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+    .phase-status.failed { background: rgba(239, 68, 68, 0.2); color: var(--error); }
+    .phase-status.in_progress { background: rgba(59, 130, 246, 0.2); color: var(--info); }
+    .phase-status.skipped { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+    .phase-status.pending { background: rgba(100, 116, 139, 0.2); color: var(--pending); }
+    
+    .actions {
+      margin-top: 2rem;
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      font-size: 0.875rem;
+      transition: opacity 0.2s;
+    }
+    
+    .btn:hover { opacity: 0.9; }
+    
+    .btn-primary {
+      background: var(--info);
+      color: white;
+    }
+    
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    
+    .command-box {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-top: 1rem;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 0.875rem;
+      position: relative;
+    }
+    
+    .command-box code {
+      color: var(--success);
+    }
+    
+    .copy-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    
+    .copy-btn:hover { color: var(--text); }
+    
+    .errors-section {
+      margin-top: 2rem;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid var(--error);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    
+    .errors-section h3 {
+      color: var(--error);
+      margin-bottom: 0.75rem;
+    }
+    
+    .error-item {
+      font-size: 0.875rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    
+    .error-item:last-child { border-bottom: none; }
+    
+    .no-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-muted);
+    }
+    
+    .no-state h2 {
+      margin-bottom: 1rem;
+    }
+    
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+    
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      text-align: center;
+    }
+    
+    .metric-value {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+    
+    .metric-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+    
+    footer {
+      margin-top: 3rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🏗️ Scaffold Dashboard</h1>
+      <p class="subtitle">Enterprise SaaS Infrastructure Progress</p>
+    </header>
+    
+    <div id="content">
+      <div class="no-state">
+        <h2>No scaffold state found</h2>
+        <p>Run the scaffolding process to see progress here.</p>
+        <div class="command-box">
+          <code>node Masterguide/scaffolding/scripts/scaffold-state.js status</code>
+        </div>
+      </div>
+    </div>
+    
+    <footer>
+      <p>Refresh this page to update • State file: scaffold-state.json</p>
+    </footer>
+  </div>
+
+  <script>
+    // Phase names
+    const PHASE_NAMES = {
+      1: 'Workspace',
+      2: 'Environment',
+      3: 'Types',
+      4: 'Database',
+      5: 'Auth',
+      6: 'Resilience',
+      7: 'Workers',
+      8: 'API',
+      9: 'Observability',
+      10: 'Integrations',
+      11: 'Frontend'
+    };
+    
+    const STATUS_ICONS = {
+      completed: '✅',
+      failed: '❌',
+      in_progress: '🔄',
+      skipped: '⏭️',
+      pending: '⬜'
+    };
+    
+    // Try to load state from file input or localStorage
+    async function loadState() {
+      // Check localStorage first
+      const cached = localStorage.getItem('scaffoldState');
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch (e) {}
+      }
+      return null;
+    }
+    
+    function formatDuration(ms) {
+      if (!ms) return '-';
+      const seconds = Math.floor(ms / 1000);
+      if (seconds < 60) return `${seconds}s`;
+      const minutes = Math.floor(seconds / 60);
+      return `${minutes}m ${seconds % 60}s`;
+    }
+    
+    function formatDate(iso) {
+      if (!iso) return '-';
+      return new Date(iso).toLocaleString();
+    }
+    
+    function renderDashboard(state) {
+      if (!state) {
+        return;
+      }
+      
+      const phases = state.phases || {};
+      const completed = Object.values(phases).filter(p => p.status === 'completed').length;
+      const failed = Object.values(phases).filter(p => p.status === 'failed').length;
+      const skipped = Object.values(phases).filter(p => p.status === 'skipped').length;
+      const total = 11 - skipped;
+      const percent = Math.round((completed / total) * 100);
+      
+      let html = `
+        <div class="status-banner ${state.status}">
+          <div class="status-row">
+            <div>
+              <div class="status-label">Overall Status</div>
+              <div class="status-value ${state.status}">${state.status.replace('_', ' ').toUpperCase()}</div>
+            </div>
+            <div>
+              <div class="status-label">Progress</div>
+              <div class="status-value">${completed}/${total} Phases</div>
+            </div>
+            <div>
+              <div class="status-label">Started</div>
+              <div class="status-value" style="font-size: 1rem">${formatDate(state.startedAt)}</div>
+            </div>
+          </div>
+          <div class="progress-container">
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: ${percent}%"></div>
+            </div>
+            <div class="progress-text">
+              <span>${percent}% Complete</span>
+              <span>${failed > 0 ? `${failed} failed` : ''}</span>
+            </div>
+          </div>
+        </div>
+        
+        <h2 style="margin-bottom: 1rem">Phases</h2>
+        <div class="phases-grid">
+      `;
+      
+      for (let i = 1; i <= 11; i++) {
+        const phase = phases[i] || { status: 'pending' };
+        const duration = state.metrics?.phaseDurations?.[i];
+        
+        html += `
+          <div class="phase-card ${phase.status}">
+            <div class="phase-icon">${STATUS_ICONS[phase.status]}</div>
+            <div class="phase-info">
+              <div class="phase-name">Phase ${String(i).padStart(2, '0')}: ${PHASE_NAMES[i]}</div>
+              <div class="phase-meta">
+                ${phase.completedAt ? `Completed: ${formatDate(phase.completedAt)}` : ''}
+                ${duration ? ` • Duration: ${formatDuration(duration)}` : ''}
+                ${phase.attempts > 1 ? ` • Attempts: ${phase.attempts}` : ''}
+              </div>
+              ${phase.error ? `<div class="phase-meta" style="color: var(--error)">Error: ${phase.error}</div>` : ''}
+            </div>
+            <span class="phase-status ${phase.status}">${phase.status}</span>
+          </div>
+        `;
+      }
+      
+      html += '</div>';
+      
+      // Next action
+      const nextPhase = Object.entries(phases).find(([_, p]) => p.status === 'pending' || p.status === 'failed');
+      if (nextPhase && state.status !== 'completed') {
+        const [num, phase] = nextPhase;
+        html += `
+          <div class="actions">
+            <div style="flex: 1">
+              <h3 style="margin-bottom: 0.5rem">Next Step</h3>
+              <p style="color: var(--text-muted); font-size: 0.875rem">
+                ${phase.status === 'failed' ? 'Retry' : 'Execute'} Phase ${num}: ${PHASE_NAMES[num]}
+              </p>
+              <div class="command-box">
+                <code>node Masterguide/scaffolding/scripts/resume-scaffold.js prompt</code>
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+              </div>
+            </div>
+          </div>
+        `;
+      } else if (state.status === 'completed') {
+        html += `
+          <div class="actions">
+            <div style="flex: 1">
+              <h3 style="margin-bottom: 0.5rem; color: var(--success)">🎉 Scaffolding Complete!</h3>
+              <p style="color: var(--text-muted); font-size: 0.875rem">
+                Run the smoke test to validate everything works together.
+              </p>
+              <div class="command-box">
+                <code>node Masterguide/scaffolding/scripts/smoke-test.js</code>
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      
+      // Errors
+      if (state.errors && state.errors.length > 0) {
+        html += `
+          <div class="errors-section">
+            <h3>Recent Errors</h3>
+            ${state.errors.slice(-5).reverse().map(e => `
+              <div class="error-item">
+                <strong>Phase ${e.phase}</strong> (Attempt ${e.attempt}): ${e.error}
+                <div style="font-size: 0.75rem; color: var(--text-muted)">${formatDate(e.timestamp)}</div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+      
+      // Metrics
+      html += `
+        <div class="metrics">
+          <div class="metric-card">
+            <div class="metric-value">${completed}</div>
+            <div class="metric-label">Completed</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" style="color: var(--error)">${failed}</div>
+            <div class="metric-label">Failed</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">${state.metrics?.retryCount || 0}</div>
+            <div class="metric-label">Total Retries</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">${formatDuration(state.metrics?.totalDuration)}</div>
+            <div class="metric-label">Total Time</div>
+          </div>
+        </div>
+      `;
+      
+      document.getElementById('content').innerHTML = html;
+    }
+    
+    function copyCommand(btn) {
+      const code = btn.parentElement.querySelector('code').textContent;
+      navigator.clipboard.writeText(code);
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy', 2000);
+    }
+    
+    // File input handler
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const state = JSON.parse(e.target.result);
+            localStorage.setItem('scaffoldState', JSON.stringify(state));
+            renderDashboard(state);
+          } catch (err) {
+            alert('Invalid JSON file');
+          }
+        };
+        reader.readAsText(file);
+      }
+    }
+    
+    // Add file input to page
+    document.addEventListener('DOMContentLoaded', () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.style.display = 'none';
+      input.id = 'stateFileInput';
+      input.onchange = handleFileSelect;
+      document.body.appendChild(input);
+      
+      // Add load button
+      const loadBtn = document.createElement('button');
+      loadBtn.className = 'btn btn-secondary';
+      loadBtn.textContent = '📂 Load scaffold-state.json';
+      loadBtn.style.position = 'fixed';
+      loadBtn.style.bottom = '1rem';
+      loadBtn.style.right = '1rem';
+      loadBtn.onclick = () => input.click();
+      document.body.appendChild(loadBtn);
+      
+      // Try to load cached state
+      loadState().then(state => {
+        if (state) renderDashboard(state);
+      });
+    });
+  </script>
+</body>
+</html>

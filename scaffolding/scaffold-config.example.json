@@ -1,0 +1,84 @@
+{
+  "$schema": "./scaffold-config.schema.json",
+  
+  "projectName": "my-saas",
+  "projectDisplayName": "My SaaS Platform",
+  "description": "An enterprise-grade SaaS application",
+
+  "auth": {
+    "provider": "supabase",
+    "oauthProviders": ["google", "github"],
+    "magicLink": true
+  },
+
+  "database": {
+    "provider": "supabase",
+    "enableRLS": true,
+    "enableRealtime": false
+  },
+
+  "payments": {
+    "enabled": true,
+    "provider": "stripe",
+    "tiers": [
+      {
+        "id": "free",
+        "name": "Free",
+        "monthlyLimit": 10,
+        "features": ["basic"]
+      },
+      {
+        "id": "pro",
+        "name": "Pro",
+        "monthlyLimit": 100,
+        "features": ["basic", "advanced", "analytics"]
+      },
+      {
+        "id": "studio",
+        "name": "Studio",
+        "monthlyLimit": 500,
+        "features": ["basic", "advanced", "analytics", "api", "white_label"]
+      },
+      {
+        "id": "enterprise",
+        "name": "Enterprise",
+        "monthlyLimit": -1,
+        "features": ["basic", "advanced", "analytics", "api", "white_label", "custom"]
+      }
+    ]
+  },
+
+  "email": {
+    "enabled": true,
+    "provider": "sendgrid"
+  },
+
+  "features": {
+    "workers": true,
+    "ai": false,
+    "fileUpload": true,
+    "analytics": false,
+    "i18n": false
+  },
+
+  "api": {
+    "style": "rest",
+    "versioning": true,
+    "rateLimit": {
+      "enabled": true,
+      "requestsPerMinute": 60
+    }
+  },
+
+  "deployment": {
+    "frontend": "vercel",
+    "backend": "railway",
+    "containerize": true
+  },
+
+  "scaffoldOptions": {
+    "skipPhases": [],
+    "dryRun": false,
+    "verbose": true
+  }
+}
