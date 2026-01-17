@@ -238,7 +238,8 @@ Data processing and analysis.
 These patterns assume:
 - **Runtime**: Node.js 20+ / Python 3.11+
 - **Language**: TypeScript 5+ (strict mode) / Python with type hints
-- **Framework**: Next.js 14+ (App Router) / FastAPI
+- **Framework**: Next.js 16+ (App Router, Turbopack) / FastAPI
+- **React**: React 19+
 - **Database**: PostgreSQL (via Supabase)
 - **Cache**: Redis (optional, patterns degrade gracefully)
 - **Package Manager**: pnpm / pip

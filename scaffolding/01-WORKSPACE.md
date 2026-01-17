@@ -76,11 +76,11 @@ Create a Turborepo + pnpm monorepo structure that supports:
     "db:types": "supabase gen types typescript --local > packages/types/src/database.ts"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "turbo": "^2.0.0",
-    "typescript": "^5.4.0"
+    "@types/node": "^22.0.0",
+    "turbo": "^2.4.0",
+    "typescript": "^5.7.0"
   },
-  "packageManager": "pnpm@9.0.0",
+  "packageManager": "pnpm@10.0.0",
   "engines": {
     "node": ">=20.0.0"
   }
@@ -264,7 +264,7 @@ FRONTEND_URL=http://localhost:3000
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -272,22 +272,22 @@ FRONTEND_URL=http://localhost:3000
   },
   "dependencies": {
     "@project/types": "workspace:*",
-    "@supabase/ssr": "^0.5.0",
-    "@supabase/supabase-js": "^2.45.0",
-    "next": "^14.2.0",
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0",
-    "zod": "^3.23.0"
+    "@supabase/ssr": "^0.6.0",
+    "@supabase/supabase-js": "^2.47.0",
+    "next": "^16.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^3.24.0"
   },
   "devDependencies": {
-    "@types/react": "^18.3.0",
-    "@types/react-dom": "^18.3.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "autoprefixer": "^10.4.0",
-    "eslint": "^8.57.0",
-    "eslint-config-next": "^14.2.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^16.1.0",
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
-    "typescript": "^5.4.0",
+    "typescript": "^5.7.0",
     "vitest": "^2.0.0"
   }
 }
@@ -315,16 +315,14 @@ FRONTEND_URL=http://localhost:3000
 }
 ```
 
-### 9. apps/web/next.config.js
+### 9. apps/web/next.config.ts
 
-```javascript
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+```typescript
+import type { NextConfig } from 'next';
+
+const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@project/types'],
-  experimental: {
-    typedRoutes: true,
-  },
   images: {
     remotePatterns: [
       {
@@ -335,7 +333,7 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+export default nextConfig;
 ```
 
 ### 10. apps/web/tailwind.config.js
@@ -457,10 +455,10 @@ export default function Home() {
     "test": "echo 'No tests yet'"
   },
   "devDependencies": {
-    "typescript": "^5.4.0"
+    "typescript": "^5.7.0"
   },
   "dependencies": {
-    "zod": "^3.23.0"
+    "zod": "^3.24.0"
   }
 }
 ```
@@ -752,7 +750,7 @@ Enterprise-grade SaaS application scaffolded with production-ready patterns.
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14+ (App Router), React 18, TypeScript, Tailwind CSS
+- **Frontend**: Next.js 16+ (App Router, Turbopack), React 19, TypeScript, Tailwind CSS
 - **Backend**: Python 3.11+, FastAPI, Pydantic
 - **Database**: PostgreSQL (Supabase)
 - **Cache**: Redis

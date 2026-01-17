@@ -2,7 +2,7 @@
 
 > **Implementation Time**: 2h  
 > **Complexity**: Low  
-> **Dependencies**: Next.js 14+
+> **Dependencies**: Next.js 16+
 
 ## Problem
 
