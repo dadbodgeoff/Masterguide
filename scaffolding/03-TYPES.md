@@ -21,8 +21,11 @@
 - `packages/types/src/jobs.ts` — Job status, state machine types
 - `packages/types/src/api.ts` — API response types
 - `packages/types/src/index.ts` — UPDATE to export new files
+- `packages/types/src/errors.test.ts` — Tests for error types and guards
+- `packages/types/src/jobs.test.ts` — Tests for job state machine
 - `packages/backend/src/exceptions.py` — Python exception classes
 - `packages/backend/src/exception_handlers.py` — FastAPI error handlers
+- `packages/backend/tests/test_exceptions.py` — Tests for exception classes
 - UPDATE `packages/backend/src/main.py` — Register exception handlers
 
 **Execution approach**:
@@ -947,3 +950,529 @@ print('Health check:', response.json())
 ## Next Phase
 
 Proceed to [04-DATABASE.md](./04-DATABASE.md) for database schema and migrations.
+
+
+---
+
+## Testing Additions
+
+> Tests for type guards, error code mapping, and exception behavior.
+
+### 9. packages/types/src/errors.test.ts
+
+```typescript
+/**
+ * Tests for error types and utilities.
+ */
+
+import { describe, it, expect } from 'vitest';
+import { 
+  ErrorCode, 
+  ErrorStatusMap, 
+  isApiError,
+  type ApiError,
+  type ErrorCodeType 
+} from './errors';
+
+describe('ErrorCode', () => {
+  it('should have all expected error codes', () => {
+    expect(ErrorCode.AUTH_REQUIRED).toBe('AUTH_REQUIRED');
+    expect(ErrorCode.RESOURCE_NOT_FOUND).toBe('RESOURCE_NOT_FOUND');
+    expect(ErrorCode.RATE_LIMIT_EXCEEDED).toBe('RATE_LIMIT_EXCEEDED');
+    expect(ErrorCode.INTERNAL_ERROR).toBe('INTERNAL_ERROR');
+  });
+
+  it('should have matching status codes for all error codes', () => {
+    const errorCodes = Object.values(ErrorCode);
+    
+    for (const code of errorCodes) {
+      expect(ErrorStatusMap[code as ErrorCodeType]).toBeDefined();
+      expect(typeof ErrorStatusMap[code as ErrorCodeType]).toBe('number');
+    }
+  });
+});
+
+describe('ErrorStatusMap', () => {
+  it('should map auth errors to 401', () => {
+    expect(ErrorStatusMap[ErrorCode.AUTH_REQUIRED]).toBe(401);
+    expect(ErrorStatusMap[ErrorCode.AUTH_TOKEN_EXPIRED]).toBe(401);
+    expect(ErrorStatusMap[ErrorCode.AUTH_TOKEN_INVALID]).toBe(401);
+  });
+
+  it('should map authorization errors to 403', () => {
+    expect(ErrorStatusMap[ErrorCode.FORBIDDEN]).toBe(403);
+    expect(ErrorStatusMap[ErrorCode.INSUFFICIENT_TIER]).toBe(403);
+  });
+
+  it('should map not found to 404', () => {
+    expect(ErrorStatusMap[ErrorCode.RESOURCE_NOT_FOUND]).toBe(404);
+  });
+
+  it('should map rate limit to 429', () => {
+    expect(ErrorStatusMap[ErrorCode.RATE_LIMIT_EXCEEDED]).toBe(429);
+  });
+
+  it('should map internal error to 500', () => {
+    expect(ErrorStatusMap[ErrorCode.INTERNAL_ERROR]).toBe(500);
+  });
+});
+
+describe('isApiError', () => {
+  it('should return true for valid API error', () => {
+    const error: ApiError = {
+      error: {
+        message: 'Not found',
+        code: 'RESOURCE_NOT_FOUND',
+      },
+    };
+    
+    expect(isApiError(error)).toBe(true);
+  });
+
+  it('should return true for API error with details', () => {
+    const error: ApiError = {
+      error: {
+        message: 'Validation failed',
+        code: 'VALIDATION_ERROR',
+        details: { field: 'email', reason: 'invalid format' },
+      },
+    };
+    
+    expect(isApiError(error)).toBe(true);
+  });
+
+  it('should return true for API error with retryAfter', () => {
+    const error: ApiError = {
+      error: {
+        message: 'Rate limited',
+        code: 'RATE_LIMIT_EXCEEDED',
+        retryAfter: 60,
+      },
+    };
+    
+    expect(isApiError(error)).toBe(true);
+  });
+
+  it('should return false for null', () => {
+    expect(isApiError(null)).toBe(false);
+  });
+
+  it('should return false for undefined', () => {
+    expect(isApiError(undefined)).toBe(false);
+  });
+
+  it('should return false for non-object', () => {
+    expect(isApiError('error')).toBe(false);
+    expect(isApiError(123)).toBe(false);
+  });
+
+  it('should return false for object without error property', () => {
+    expect(isApiError({ message: 'error' })).toBe(false);
+  });
+
+  it('should return false for object with invalid error structure', () => {
+    expect(isApiError({ error: 'string' })).toBe(false);
+    expect(isApiError({ error: { message: 'test' } })).toBe(false);
+  });
+});
+```
+
+### 10. packages/types/src/jobs.test.ts
+
+```typescript
+/**
+ * Tests for job types and state machine.
+ */
+
+import { describe, it, expect } from 'vitest';
+import { 
+  VALID_JOB_TRANSITIONS, 
+  isTerminalStatus, 
+  isValidTransition,
+  type JobStatus 
+} from './jobs';
+
+describe('VALID_JOB_TRANSITIONS', () => {
+  it('should allow queued to transition to processing', () => {
+    expect(VALID_JOB_TRANSITIONS.queued).toContain('processing');
+  });
+
+  it('should allow processing to transition to completed, partial, or failed', () => {
+    expect(VALID_JOB_TRANSITIONS.processing).toContain('completed');
+    expect(VALID_JOB_TRANSITIONS.processing).toContain('partial');
+    expect(VALID_JOB_TRANSITIONS.processing).toContain('failed');
+  });
+
+  it('should not allow completed to transition', () => {
+    expect(VALID_JOB_TRANSITIONS.completed).toHaveLength(0);
+  });
+
+  it('should not allow failed to transition', () => {
+    expect(VALID_JOB_TRANSITIONS.failed).toHaveLength(0);
+  });
+
+  it('should not allow partial to transition', () => {
+    expect(VALID_JOB_TRANSITIONS.partial).toHaveLength(0);
+  });
+});
+
+describe('isTerminalStatus', () => {
+  it('should return true for completed', () => {
+    expect(isTerminalStatus('completed')).toBe(true);
+  });
+
+  it('should return true for failed', () => {
+    expect(isTerminalStatus('failed')).toBe(true);
+  });
+
+  it('should return true for partial', () => {
+    expect(isTerminalStatus('partial')).toBe(true);
+  });
+
+  it('should return false for queued', () => {
+    expect(isTerminalStatus('queued')).toBe(false);
+  });
+
+  it('should return false for processing', () => {
+    expect(isTerminalStatus('processing')).toBe(false);
+  });
+});
+
+describe('isValidTransition', () => {
+  it('should allow queued -> processing', () => {
+    expect(isValidTransition('queued', 'processing')).toBe(true);
+  });
+
+  it('should allow processing -> completed', () => {
+    expect(isValidTransition('processing', 'completed')).toBe(true);
+  });
+
+  it('should allow processing -> failed', () => {
+    expect(isValidTransition('processing', 'failed')).toBe(true);
+  });
+
+  it('should allow processing -> partial', () => {
+    expect(isValidTransition('processing', 'partial')).toBe(true);
+  });
+
+  it('should not allow queued -> completed (skip processing)', () => {
+    expect(isValidTransition('queued', 'completed')).toBe(false);
+  });
+
+  it('should not allow completed -> processing (reverse)', () => {
+    expect(isValidTransition('completed', 'processing')).toBe(false);
+  });
+
+  it('should not allow failed -> queued (restart)', () => {
+    expect(isValidTransition('failed', 'queued')).toBe(false);
+  });
+
+  it('should not allow processing -> queued (reverse)', () => {
+    expect(isValidTransition('processing', 'queued')).toBe(false);
+  });
+});
+```
+
+### 11. packages/backend/tests/test_exceptions.py
+
+```python
+"""
+Tests for exception classes and error handling.
+"""
+
+import pytest
+from src.exceptions import (
+    AppError,
+    ErrorCode,
+    AuthenticationError,
+    InvalidCredentialsError,
+    TokenExpiredError,
+    AuthorizationError,
+    InsufficientTierError,
+    NotFoundError,
+    JobNotFoundError,
+    ValidationError,
+    InvalidStateTransitionError,
+    RateLimitError,
+    ExternalServiceError,
+)
+
+
+class TestErrorCode:
+    """Tests for ErrorCode enum."""
+    
+    def test_error_codes_are_strings(self):
+        """All error codes should be string values."""
+        for code in ErrorCode:
+            assert isinstance(code.value, str)
+    
+    def test_auth_codes_exist(self):
+        """Authentication error codes should exist."""
+        assert ErrorCode.AUTH_REQUIRED
+        assert ErrorCode.AUTH_TOKEN_EXPIRED
+        assert ErrorCode.AUTH_INVALID_CREDENTIALS
+    
+    def test_resource_codes_exist(self):
+        """Resource error codes should exist."""
+        assert ErrorCode.RESOURCE_NOT_FOUND
+        assert ErrorCode.RESOURCE_CONFLICT
+
+
+class TestAppError:
+    """Tests for base AppError class."""
+    
+    def test_to_dict_basic(self):
+        """to_dict should return correct structure."""
+        error = AppError(
+            message="Test error",
+            code=ErrorCode.INTERNAL_ERROR,
+        )
+        
+        result = error.to_dict()
+        
+        assert result["error"]["message"] == "Test error"
+        assert result["error"]["code"] == "INTERNAL_ERROR"
+        assert "details" not in result["error"]
+        assert "retryAfter" not in result["error"]
+    
+    def test_to_dict_with_details(self):
+        """to_dict should include details when present."""
+        error = AppError(
+            message="Test error",
+            code=ErrorCode.VALIDATION_ERROR,
+            details={"field": "email"},
+        )
+        
+        result = error.to_dict()
+        
+        assert result["error"]["details"] == {"field": "email"}
+    
+    def test_to_dict_with_retry_after(self):
+        """to_dict should include retryAfter when present."""
+        error = AppError(
+            message="Rate limited",
+            code=ErrorCode.RATE_LIMIT_EXCEEDED,
+            retry_after=60,
+        )
+        
+        result = error.to_dict()
+        
+        assert result["error"]["retryAfter"] == 60
+    
+    def test_str_representation(self):
+        """String representation should include code and message."""
+        error = AppError(
+            message="Something went wrong",
+            code=ErrorCode.INTERNAL_ERROR,
+        )
+        
+        assert str(error) == "INTERNAL_ERROR: Something went wrong"
+
+
+class TestAuthenticationErrors:
+    """Tests for authentication exceptions."""
+    
+    def test_authentication_error_defaults(self):
+        """AuthenticationError should have correct defaults."""
+        error = AuthenticationError()
+        
+        assert error.status_code == 401
+        assert error.code == ErrorCode.AUTH_REQUIRED
+    
+    def test_invalid_credentials_error(self):
+        """InvalidCredentialsError should have correct values."""
+        error = InvalidCredentialsError()
+        
+        assert error.status_code == 401
+        assert error.code == ErrorCode.AUTH_INVALID_CREDENTIALS
+        assert "Invalid email or password" in error.message
+    
+    def test_token_expired_error(self):
+        """TokenExpiredError should have correct values."""
+        error = TokenExpiredError()
+        
+        assert error.status_code == 401
+        assert error.code == ErrorCode.AUTH_TOKEN_EXPIRED
+
+
+class TestAuthorizationErrors:
+    """Tests for authorization exceptions."""
+    
+    def test_authorization_error_with_resource_type(self):
+        """AuthorizationError should include resource type."""
+        error = AuthorizationError(resource_type="job")
+        
+        assert error.status_code == 403
+        assert "job" in error.message
+        assert error.details["resource_type"] == "job"
+    
+    def test_insufficient_tier_error(self):
+        """InsufficientTierError should include tier info."""
+        error = InsufficientTierError(
+            required_tier="pro",
+            current_tier="free",
+        )
+        
+        assert error.status_code == 403
+        assert error.code == ErrorCode.INSUFFICIENT_TIER
+        assert "pro" in error.message
+        assert error.details["required_tier"] == "pro"
+        assert error.details["current_tier"] == "free"
+
+
+class TestResourceErrors:
+    """Tests for resource exceptions."""
+    
+    def test_not_found_error(self):
+        """NotFoundError should include resource info."""
+        error = NotFoundError(
+            resource_type="user",
+            resource_id="123",
+        )
+        
+        assert error.status_code == 404
+        assert error.code == ErrorCode.RESOURCE_NOT_FOUND
+        assert "User" in error.message
+        assert error.details["resource_type"] == "user"
+        assert error.details["resource_id"] == "123"
+    
+    def test_job_not_found_error(self):
+        """JobNotFoundError should be specialized NotFoundError."""
+        error = JobNotFoundError(job_id="job-456")
+        
+        assert error.status_code == 404
+        assert error.resource_type == "job"
+        assert error.resource_id == "job-456"
+
+
+class TestValidationErrors:
+    """Tests for validation exceptions."""
+    
+    def test_validation_error_with_field_errors(self):
+        """ValidationError should include field errors."""
+        error = ValidationError(
+            field_errors={
+                "email": ["Invalid format"],
+                "password": ["Too short", "Missing number"],
+            }
+        )
+        
+        assert error.status_code == 422
+        assert error.details["fields"]["email"] == ["Invalid format"]
+        assert len(error.details["fields"]["password"]) == 2
+    
+    def test_invalid_state_transition_error(self):
+        """InvalidStateTransitionError should include states."""
+        error = InvalidStateTransitionError(
+            current_status="completed",
+            target_status="processing",
+        )
+        
+        assert error.status_code == 409
+        assert error.code == ErrorCode.INVALID_STATE_TRANSITION
+        assert "completed" in error.message
+        assert "processing" in error.message
+
+
+class TestRateLimitError:
+    """Tests for rate limit exception."""
+    
+    def test_rate_limit_error(self):
+        """RateLimitError should include retry_after."""
+        error = RateLimitError(retry_after=30)
+        
+        assert error.status_code == 429
+        assert error.retry_after == 30
+        assert error.details["retry_after"] == 30
+        
+        result = error.to_dict()
+        assert result["error"]["retryAfter"] == 30
+
+
+class TestExternalServiceError:
+    """Tests for external service exception."""
+    
+    def test_external_service_error(self):
+        """ExternalServiceError should include service name."""
+        error = ExternalServiceError(service_name="stripe")
+        
+        assert error.status_code == 502
+        assert "stripe" in error.message
+        assert error.details["service"] == "stripe"
+```
+
+### 12. Update packages/types/package.json for tests
+
+Add vitest to the types package:
+
+```json
+{
+  "name": "@project/types",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0"
+  },
+  "dependencies": {
+    "zod": "^3.24.0"
+  }
+}
+```
+
+---
+
+## Updated Verification
+
+**Additional test checks:**
+
+```bash
+# 1. Run TypeScript type tests
+cd packages/types
+pnpm test
+
+# 2. Run Python exception tests
+cd ../backend
+source .venv/bin/activate
+pytest tests/test_exceptions.py -v
+
+# 3. Verify error code parity
+python -c "
+from src.exceptions import ErrorCode
+ts_codes = ['AUTH_INVALID_CREDENTIALS', 'AUTH_TOKEN_EXPIRED', 'AUTH_TOKEN_INVALID', 
+            'AUTH_EMAIL_EXISTS', 'AUTH_WEAK_PASSWORD', 'AUTH_REQUIRED', 'FORBIDDEN',
+            'INSUFFICIENT_TIER', 'RESOURCE_NOT_FOUND', 'RESOURCE_CONFLICT',
+            'VALIDATION_ERROR', 'INVALID_STATE_TRANSITION', 'RATE_LIMIT_EXCEEDED',
+            'PAYMENT_REQUIRED', 'PAYMENT_FAILED', 'SERVICE_UNAVAILABLE',
+            'EXTERNAL_SERVICE_ERROR', 'GENERATION_FAILED', 'GENERATION_TIMEOUT',
+            'INTERNAL_ERROR']
+py_codes = [e.value for e in ErrorCode]
+missing = set(ts_codes) - set(py_codes)
+extra = set(py_codes) - set(ts_codes)
+assert not missing, f'Missing in Python: {missing}'
+assert not extra, f'Extra in Python: {extra}'
+print('Error codes match between TypeScript and Python')
+"
+```
+
+**Updated Success Criteria**:
+- [ ] All original criteria pass
+- [ ] `pnpm --filter @project/types test` passes
+- [ ] `pytest tests/test_exceptions.py` passes
+- [ ] Error codes match between TypeScript and Python

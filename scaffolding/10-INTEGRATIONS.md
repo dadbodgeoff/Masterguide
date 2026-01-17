@@ -744,3 +744,255 @@ pnpm lint
 ## Next Phase
 
 Proceed to [11-FRONTEND.md](./11-FRONTEND.md) for frontend foundation.
+
+
+---
+
+## Testing Additions
+
+> Tests for Stripe webhook handling, email service, and webhook idempotency.
+
+### 6. packages/backend/tests/test_integrations.py
+
+```python
+"""
+Tests for third-party integrations.
+"""
+
+import pytest
+import time
+from unittest.mock import MagicMock, AsyncMock, patch
+
+
+class TestStripeService:
+    """Tests for Stripe service."""
+    
+    def test_get_tier_for_price_known(self):
+        """Should return correct tier for known price ID."""
+        from src.integrations.stripe_service import StripeService
+        
+        service = StripeService()
+        
+        # When Stripe is not configured, PRICE_TIERS is empty
+        # This tests the fallback behavior
+        tier = service.get_tier_for_price("unknown_price")
+        assert tier == "free"
+    
+    def test_stripe_not_configured(self):
+        """Should handle missing Stripe configuration gracefully."""
+        from src.integrations.stripe_service import StripeService
+        
+        service = StripeService()
+        
+        # Service should be created without error
+        assert service is not None
+
+
+class TestEmailService:
+    """Tests for email service."""
+    
+    @pytest.mark.asyncio
+    async def test_console_provider_logs(self):
+        """ConsoleEmailProvider should log instead of sending."""
+        from src.integrations.email_service import (
+            EmailService, ConsoleEmailProvider, EmailMessage
+        )
+        
+        provider = ConsoleEmailProvider()
+        service = EmailService(provider=provider)
+        
+        result = await service.send(EmailMessage(
+            to="test@example.com",
+            subject="Test Subject",
+            html_content="<p>Test content</p>",
+        ))
+        
+        assert result is True
+    
+    @pytest.mark.asyncio
+    async def test_send_welcome_email(self):
+        """Should send welcome email."""
+        from src.integrations.email_service import EmailService, ConsoleEmailProvider
+        
+        provider = ConsoleEmailProvider()
+        service = EmailService(provider=provider)
+        
+        result = await service.send_welcome_email(
+            to="newuser@example.com",
+            name="New User"
+        )
+        
+        assert result is True
+    
+    @pytest.mark.asyncio
+    async def test_send_subscription_confirmation(self):
+        """Should send subscription confirmation."""
+        from src.integrations.email_service import EmailService, ConsoleEmailProvider
+        
+        provider = ConsoleEmailProvider()
+        service = EmailService(provider=provider)
+        
+        result = await service.send_subscription_confirmation(
+            to="user@example.com",
+            tier="pro",
+            period_end="2024-02-01"
+        )
+        
+        assert result is True
+    
+    @pytest.mark.asyncio
+    async def test_send_payment_failed(self):
+        """Should send payment failed notification."""
+        from src.integrations.email_service import EmailService, ConsoleEmailProvider
+        
+        provider = ConsoleEmailProvider()
+        service = EmailService(provider=provider)
+        
+        result = await service.send_payment_failed(to="user@example.com")
+        
+        assert result is True
+
+
+class TestWebhookHandler:
+    """Tests for webhook handler."""
+    
+    def test_register_handler(self):
+        """Should register event handlers."""
+        from src.integrations.webhook_handler import WebhookHandler
+        
+        handler = WebhookHandler()
+        
+        async def test_handler(data):
+            return {"processed": True}
+        
+        handler.register_handler("test.event", test_handler)
+        
+        assert "test.event" in handler._handlers
+    
+    @pytest.mark.asyncio
+    async def test_validate_event_age_valid(self):
+        """Should accept recent events."""
+        from src.integrations.webhook_handler import WebhookHandler
+        
+        handler = WebhookHandler()
+        
+        # Event created just now
+        event_created = int(time.time())
+        
+        # Should not raise
+        await handler.validate_event(
+            event_id="evt_123",
+            event_type="test.event",
+            event_created=event_created
+        )
+    
+    @pytest.mark.asyncio
+    async def test_validate_event_age_too_old(self):
+        """Should reject old events."""
+        from src.integrations.webhook_handler import (
+            WebhookHandler, WebhookEventTooOldError
+        )
+        
+        handler = WebhookHandler()
+        
+        # Event created 10 minutes ago (beyond 5 min limit)
+        event_created = int(time.time()) - 600
+        
+        with pytest.raises(WebhookEventTooOldError):
+            await handler.validate_event(
+                event_id="evt_123",
+                event_type="test.event",
+                event_created=event_created
+            )
+    
+    @pytest.mark.asyncio
+    async def test_process_event_no_handler(self):
+        """Should return ignored for unknown event types."""
+        from src.integrations.webhook_handler import WebhookHandler
+        
+        handler = WebhookHandler()
+        
+        result = await handler.process_event(
+            event_id="evt_123",
+            event_type="unknown.event",
+            event_data={}
+        )
+        
+        assert result["status"] == "ignored"
+        assert result["reason"] == "no_handler"
+    
+    @pytest.mark.asyncio
+    async def test_process_event_with_handler(self):
+        """Should process event with registered handler."""
+        from src.integrations.webhook_handler import WebhookHandler
+        
+        handler = WebhookHandler()
+        
+        async def test_handler(data):
+            return {"received": data}
+        
+        handler.register_handler("test.event", test_handler)
+        
+        result = await handler.process_event(
+            event_id="evt_123",
+            event_type="test.event",
+            event_data={"key": "value"}
+        )
+        
+        assert result["status"] == "processed"
+        assert result["result"]["received"]["key"] == "value"
+    
+    @pytest.mark.asyncio
+    async def test_process_event_handler_error(self):
+        """Should handle handler errors gracefully."""
+        from src.integrations.webhook_handler import WebhookHandler
+        
+        handler = WebhookHandler()
+        
+        async def failing_handler(data):
+            raise ValueError("Handler failed")
+        
+        handler.register_handler("test.event", failing_handler)
+        
+        result = await handler.process_event(
+            event_id="evt_123",
+            event_type="test.event",
+            event_data={}
+        )
+        
+        assert result["status"] == "error"
+        assert "Handler failed" in result["error"]
+```
+
+---
+
+## Updated Verification
+
+**Additional test checks:**
+
+```bash
+# Run integration tests
+cd packages/backend
+source .venv/bin/activate
+pytest tests/test_integrations.py -v
+
+# Verify email service fallback
+python -c "
+import asyncio
+from src.integrations.email_service import EmailService
+
+async def test():
+    service = EmailService()  # Should use ConsoleEmailProvider
+    result = await service.send_welcome_email('test@example.com', 'Test')
+    print('Email sent (to console):', result)
+
+asyncio.run(test())
+"
+```
+
+**Updated Success Criteria**:
+- [ ] All original criteria pass
+- [ ] `pytest tests/test_integrations.py` passes
+- [ ] Email service uses console fallback
+- [ ] Webhook handler validates event age
+- [ ] Webhook handler routes to correct handlers

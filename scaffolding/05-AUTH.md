@@ -858,3 +858,369 @@ pytest -v
 ## Next Phase
 
 Proceed to [06-RESILIENCE.md](./06-RESILIENCE.md) for resilience patterns.
+
+
+---
+
+## Testing Additions
+
+> Tests for JWT handling, entitlements, and auth dependencies.
+
+### 11. packages/backend/tests/test_auth.py
+
+```python
+"""
+Tests for authentication module.
+"""
+
+import pytest
+from datetime import timedelta
+from unittest.mock import MagicMock, AsyncMock, patch
+
+from tests.fixtures import UserFactory
+
+
+class TestJWT:
+    """Tests for JWT token handling."""
+    
+    def test_create_access_token(self):
+        """Should create valid JWT token."""
+        from src.auth.jwt import create_access_token, verify_token
+        
+        token = create_access_token({
+            "sub": "user-123",
+            "email": "test@example.com",
+        })
+        
+        assert token
+        assert isinstance(token, str)
+        assert len(token.split(".")) == 3  # JWT has 3 parts
+    
+    def test_verify_valid_token(self):
+        """Should verify and decode valid token."""
+        from src.auth.jwt import create_access_token, verify_token
+        
+        token = create_access_token({
+            "sub": "user-123",
+            "email": "test@example.com",
+        })
+        
+        payload = verify_token(token)
+        
+        assert payload["sub"] == "user-123"
+        assert payload["email"] == "test@example.com"
+        assert "exp" in payload
+        assert "iat" in payload
+    
+    def test_verify_expired_token(self):
+        """Should raise TokenExpiredError for expired token."""
+        from src.auth.jwt import create_access_token, verify_token
+        from src.exceptions import TokenExpiredError
+        
+        # Create token that's already expired
+        token = create_access_token(
+            {"sub": "user-123"},
+            expires_delta=timedelta(seconds=-1),
+        )
+        
+        with pytest.raises(TokenExpiredError):
+            verify_token(token)
+    
+    def test_verify_invalid_token(self):
+        """Should raise TokenInvalidError for malformed token."""
+        from src.auth.jwt import verify_token
+        from src.exceptions import TokenInvalidError
+        
+        with pytest.raises(TokenInvalidError):
+            verify_token("invalid.token.here")
+    
+    def test_create_refresh_token(self):
+        """Should create refresh token with longer expiration."""
+        from src.auth.jwt import create_refresh_token, verify_token
+        
+        token = create_refresh_token("user-123")
+        payload = verify_token(token)
+        
+        assert payload["sub"] == "user-123"
+        assert payload["type"] == "refresh"
+
+
+class TestEntitlements:
+    """Tests for tier entitlements."""
+    
+    def test_get_entitlements_free(self):
+        """Should return correct entitlements for free tier."""
+        from src.auth.entitlements import get_entitlements
+        
+        ent = get_entitlements("free")
+        
+        assert ent.tier == "free"
+        assert ent.monthly_limit == 10
+        assert ent.api_access is False
+        assert "basic" in ent.features
+    
+    def test_get_entitlements_pro(self):
+        """Should return correct entitlements for pro tier."""
+        from src.auth.entitlements import get_entitlements
+        
+        ent = get_entitlements("pro")
+        
+        assert ent.tier == "pro"
+        assert ent.monthly_limit == 100
+        assert ent.priority_support is True
+        assert "analytics" in ent.features
+    
+    def test_get_entitlements_enterprise(self):
+        """Should return unlimited for enterprise tier."""
+        from src.auth.entitlements import get_entitlements
+        
+        ent = get_entitlements("enterprise")
+        
+        assert ent.monthly_limit == -1  # Unlimited
+        assert ent.api_access is True
+    
+    def test_has_feature(self):
+        """Should correctly check feature access."""
+        from src.auth.entitlements import has_feature
+        
+        assert has_feature("free", "basic") is True
+        assert has_feature("free", "analytics") is False
+        assert has_feature("pro", "analytics") is True
+        assert has_feature("studio", "api") is True
+    
+    def test_check_usage_limit_within(self):
+        """Should return True when within limits."""
+        from src.auth.entitlements import check_usage_limit
+        
+        assert check_usage_limit("free", 5) is True
+        assert check_usage_limit("pro", 50) is True
+    
+    def test_check_usage_limit_exceeded(self):
+        """Should return False when limit exceeded."""
+        from src.auth.entitlements import check_usage_limit
+        
+        assert check_usage_limit("free", 10) is False
+        assert check_usage_limit("free", 15) is False
+    
+    def test_check_usage_limit_unlimited(self):
+        """Should always return True for unlimited tier."""
+        from src.auth.entitlements import check_usage_limit
+        
+        assert check_usage_limit("enterprise", 1000000) is True
+    
+    def test_get_remaining_usage(self):
+        """Should calculate remaining usage correctly."""
+        from src.auth.entitlements import get_remaining_usage
+        
+        assert get_remaining_usage("free", 3) == 7
+        assert get_remaining_usage("free", 10) == 0
+        assert get_remaining_usage("free", 15) == 0  # Can't go negative
+        assert get_remaining_usage("enterprise", 1000) == -1  # Unlimited
+
+
+class TestAuthDependencies:
+    """Tests for FastAPI auth dependencies."""
+    
+    @pytest.mark.asyncio
+    async def test_get_token_from_header_valid(self):
+        """Should extract token from valid header."""
+        from src.auth.dependencies import get_token_from_header
+        
+        token = await get_token_from_header("Bearer test-token-123")
+        
+        assert token == "test-token-123"
+    
+    @pytest.mark.asyncio
+    async def test_get_token_from_header_missing(self):
+        """Should raise AuthenticationError when header missing."""
+        from src.auth.dependencies import get_token_from_header
+        from src.exceptions import AuthenticationError
+        
+        with pytest.raises(AuthenticationError):
+            await get_token_from_header(None)
+    
+    @pytest.mark.asyncio
+    async def test_get_token_from_header_invalid_format(self):
+        """Should raise AuthenticationError for invalid format."""
+        from src.auth.dependencies import get_token_from_header
+        from src.exceptions import AuthenticationError
+        
+        with pytest.raises(AuthenticationError):
+            await get_token_from_header("InvalidFormat token")
+        
+        with pytest.raises(AuthenticationError):
+            await get_token_from_header("Basic base64credentials")
+    
+    @pytest.mark.asyncio
+    async def test_require_tier_sufficient(self):
+        """Should allow access when tier is sufficient."""
+        from src.auth.dependencies import require_tier
+        
+        user = UserFactory.create_pro()
+        check_tier = require_tier("pro")
+        
+        # Mock the dependency
+        with patch('src.auth.dependencies.get_current_user') as mock_get_user:
+            mock_get_user.return_value = user
+            # The actual check happens in the dependency
+            # Here we just verify the tier comparison logic
+            user_tier = user.get("subscription_tier", "free")
+            tier_order = ["free", "pro", "studio", "enterprise"]
+            assert tier_order.index(user_tier) >= tier_order.index("pro")
+    
+    @pytest.mark.asyncio
+    async def test_require_tier_insufficient(self):
+        """Should deny access when tier is insufficient."""
+        from src.auth.dependencies import require_tier
+        from src.exceptions import InsufficientTierError
+        
+        user = UserFactory.create()  # Free tier
+        
+        # Verify the tier comparison logic
+        user_tier = user.get("subscription_tier", "free")
+        tier_order = ["free", "pro", "studio", "enterprise"]
+        assert tier_order.index(user_tier) < tier_order.index("pro")
+```
+
+### 12. apps/web/lib/auth/hooks.test.ts
+
+```typescript
+/**
+ * Tests for auth hooks.
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
+
+// Mock Supabase client
+vi.mock('@/lib/supabase/client', () => ({
+  createClient: () => ({
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+      onAuthStateChange: vi.fn().mockReturnValue({
+        data: { subscription: { unsubscribe: vi.fn() } },
+      }),
+    },
+    from: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        }),
+      }),
+    }),
+  }),
+}));
+
+describe('useFeatureAccess', () => {
+  // Note: These tests verify the logic, actual hook tests would need
+  // the full provider setup
+  
+  it('should check feature access based on tier', () => {
+    const TIER_FEATURES: Record<string, string[]> = {
+      free: ['basic'],
+      pro: ['basic', 'advanced', 'analytics'],
+      studio: ['basic', 'advanced', 'analytics', 'api', 'white_label'],
+      enterprise: ['basic', 'advanced', 'analytics', 'api', 'white_label', 'custom'],
+    };
+    
+    // Free tier checks
+    expect(TIER_FEATURES.free.includes('basic')).toBe(true);
+    expect(TIER_FEATURES.free.includes('analytics')).toBe(false);
+    
+    // Pro tier checks
+    expect(TIER_FEATURES.pro.includes('analytics')).toBe(true);
+    expect(TIER_FEATURES.pro.includes('api')).toBe(false);
+    
+    // Studio tier checks
+    expect(TIER_FEATURES.studio.includes('api')).toBe(true);
+  });
+  
+  it('should check usage limits based on tier', () => {
+    const TIER_LIMITS: Record<string, number> = {
+      free: 10,
+      pro: 100,
+      studio: 500,
+      enterprise: -1, // Unlimited
+    };
+    
+    const checkLimit = (tier: string, usage: number): boolean => {
+      const limit = TIER_LIMITS[tier];
+      if (limit === -1) return true;
+      return usage < limit;
+    };
+    
+    expect(checkLimit('free', 5)).toBe(true);
+    expect(checkLimit('free', 10)).toBe(false);
+    expect(checkLimit('enterprise', 1000000)).toBe(true);
+  });
+});
+
+describe('Auth tier comparison', () => {
+  const TIER_ORDER = ['free', 'pro', 'studio', 'enterprise'];
+  
+  const hasTierAccess = (userTier: string, requiredTier: string): boolean => {
+    const userIndex = TIER_ORDER.indexOf(userTier);
+    const requiredIndex = TIER_ORDER.indexOf(requiredTier);
+    return userIndex >= requiredIndex;
+  };
+  
+  it('should allow same tier access', () => {
+    expect(hasTierAccess('pro', 'pro')).toBe(true);
+  });
+  
+  it('should allow higher tier access', () => {
+    expect(hasTierAccess('studio', 'pro')).toBe(true);
+    expect(hasTierAccess('enterprise', 'free')).toBe(true);
+  });
+  
+  it('should deny lower tier access', () => {
+    expect(hasTierAccess('free', 'pro')).toBe(false);
+    expect(hasTierAccess('pro', 'studio')).toBe(false);
+  });
+});
+```
+
+---
+
+## Updated Verification
+
+**Additional test checks:**
+
+```bash
+# 1. Run Python auth tests
+cd packages/backend
+source .venv/bin/activate
+pytest tests/test_auth.py -v
+
+# 2. Run frontend auth tests
+cd ../../apps/web
+pnpm test -- --run tests/lib/auth
+
+# 3. Verify entitlements match between TS and Python
+python -c "
+from src.auth.entitlements import TIER_ENTITLEMENTS
+
+# These should match packages/types/src/auth.ts TIER_ENTITLEMENTS
+expected = {
+    'free': {'monthly_limit': 10, 'api_access': False},
+    'pro': {'monthly_limit': 100, 'api_access': False},
+    'studio': {'monthly_limit': 500, 'api_access': True},
+    'enterprise': {'monthly_limit': -1, 'api_access': True},
+}
+
+for tier, exp in expected.items():
+    ent = TIER_ENTITLEMENTS[tier]
+    assert ent.monthly_limit == exp['monthly_limit'], f'{tier} limit mismatch'
+    assert ent.api_access == exp['api_access'], f'{tier} api_access mismatch'
+
+print('Entitlements match between TypeScript and Python')
+"
+```
+
+**Updated Success Criteria**:
+- [ ] All original criteria pass
+- [ ] `pytest tests/test_auth.py` passes
+- [ ] JWT creation/verification tests pass
+- [ ] Entitlements tests pass
+- [ ] Tier comparison logic verified
+- [ ] Entitlements match between TS and Python

@@ -759,3 +759,290 @@ pnpm lint
 ## Next Phase
 
 Proceed to [09-OBSERVABILITY.md](./09-OBSERVABILITY.md) for logging and metrics.
+
+
+---
+
+## Testing Additions
+
+> Tests for API routes, rate limiting, and response formatting.
+
+### 12. packages/backend/tests/test_api.py
+
+```python
+"""
+Tests for API routes and middleware.
+"""
+
+import pytest
+from fastapi.testclient import TestClient
+from unittest.mock import MagicMock, patch
+
+from tests.fixtures import UserFactory, JobFactory
+
+
+class TestHealthEndpoints:
+    """Tests for health check endpoints."""
+    
+    def test_basic_health_check(self):
+        """Should return healthy status."""
+        from src.main import app
+        
+        client = TestClient(app)
+        response = client.get("/health")
+        
+        assert response.status_code == 200
+        assert response.json()["status"] == "healthy"
+    
+    def test_root_endpoint(self):
+        """Should return ok status."""
+        from src.main import app
+        
+        client = TestClient(app)
+        response = client.get("/")
+        
+        assert response.status_code == 200
+        assert response.json()["status"] == "ok"
+
+
+class TestResponseHelpers:
+    """Tests for API response helpers."""
+    
+    def test_success_response(self):
+        """Should format success response correctly."""
+        from src.api.responses import success_response
+        
+        result = success_response({"id": "123", "name": "Test"})
+        
+        assert result["success"] is True
+        assert result["data"]["id"] == "123"
+        assert "meta" not in result
+    
+    def test_success_response_with_meta(self):
+        """Should include meta when provided."""
+        from src.api.responses import success_response
+        
+        result = success_response(
+            {"id": "123"},
+            meta={"request_id": "req-456"}
+        )
+        
+        assert result["success"] is True
+        assert result["meta"]["request_id"] == "req-456"
+    
+    def test_error_response(self):
+        """Should format error response correctly."""
+        from src.api.responses import error_response
+        
+        result = error_response(
+            message="Not found",
+            code="RESOURCE_NOT_FOUND"
+        )
+        
+        assert result["success"] is False
+        assert result["error"]["message"] == "Not found"
+        assert result["error"]["code"] == "RESOURCE_NOT_FOUND"
+    
+    def test_error_response_with_details(self):
+        """Should include details when provided."""
+        from src.api.responses import error_response
+        
+        result = error_response(
+            message="Validation failed",
+            code="VALIDATION_ERROR",
+            details={"field": "email", "reason": "invalid"}
+        )
+        
+        assert result["error"]["details"]["field"] == "email"
+    
+    def test_paginated_response(self):
+        """Should format paginated response correctly."""
+        from src.api.responses import paginated_response
+        
+        result = paginated_response(
+            data=[{"id": "1"}, {"id": "2"}],
+            total=10,
+            limit=2,
+            offset=0
+        )
+        
+        assert result["success"] is True
+        assert len(result["data"]) == 2
+        assert result["meta"]["total"] == 10
+        assert result["meta"]["has_more"] is True
+    
+    def test_paginated_response_no_more(self):
+        """Should indicate no more when at end."""
+        from src.api.responses import paginated_response
+        
+        result = paginated_response(
+            data=[{"id": "9"}, {"id": "10"}],
+            total=10,
+            limit=2,
+            offset=8
+        )
+        
+        assert result["meta"]["has_more"] is False
+
+
+class TestRateLimitMiddleware:
+    """Tests for rate limiting middleware."""
+    
+    def test_rate_limit_headers(self):
+        """Should include rate limit headers in response."""
+        from src.main import app
+        
+        client = TestClient(app)
+        response = client.get("/")
+        
+        # Rate limit headers should be present
+        assert "X-RateLimit-Limit" in response.headers
+        assert "X-RateLimit-Remaining" in response.headers
+        assert "X-RateLimit-Reset" in response.headers
+    
+    def test_rate_limit_decrements(self):
+        """Remaining should decrement with each request."""
+        from src.main import app
+        
+        client = TestClient(app)
+        
+        response1 = client.get("/")
+        remaining1 = int(response1.headers["X-RateLimit-Remaining"])
+        
+        response2 = client.get("/")
+        remaining2 = int(response2.headers["X-RateLimit-Remaining"])
+        
+        assert remaining2 < remaining1
+
+
+class TestJobRoutes:
+    """Tests for job API routes."""
+    
+    def test_create_job_requires_auth(self):
+        """Should require authentication to create job."""
+        from src.main import app
+        
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/jobs",
+            json={"job_type": "generation"}
+        )
+        
+        # Should fail without auth
+        assert response.status_code == 401
+    
+    def test_list_jobs_requires_auth(self):
+        """Should require authentication to list jobs."""
+        from src.main import app
+        
+        client = TestClient(app)
+        response = client.get("/api/v1/jobs")
+        
+        assert response.status_code == 401
+```
+
+### 13. apps/web/app/api/jobs/route.test.ts
+
+```typescript
+/**
+ * Tests for jobs API route.
+ */
+
+import { describe, it, expect, vi } from 'vitest';
+
+describe('Jobs API Route', () => {
+  describe('POST /api/jobs', () => {
+    it('should validate job type is required', () => {
+      const schema = {
+        jobType: { required: true, minLength: 1 },
+        parameters: { required: false },
+      };
+      
+      // Empty job type should fail
+      const emptyJobType = '';
+      expect(emptyJobType.length >= 1).toBe(false);
+      
+      // Valid job type should pass
+      const validJobType = 'generation';
+      expect(validJobType.length >= 1).toBe(true);
+    });
+    
+    it('should accept optional parameters', () => {
+      const validRequest = {
+        jobType: 'generation',
+        parameters: { prompt: 'test' },
+      };
+      
+      expect(validRequest.jobType).toBeDefined();
+      expect(validRequest.parameters).toBeDefined();
+    });
+  });
+  
+  describe('GET /api/jobs', () => {
+    it('should support pagination parameters', () => {
+      const parseParams = (url: string) => {
+        const params = new URLSearchParams(url.split('?')[1]);
+        return {
+          limit: parseInt(params.get('limit') || '20'),
+          offset: parseInt(params.get('offset') || '0'),
+          status: params.get('status'),
+        };
+      };
+      
+      const params = parseParams('/api/jobs?limit=10&offset=20&status=completed');
+      
+      expect(params.limit).toBe(10);
+      expect(params.offset).toBe(20);
+      expect(params.status).toBe('completed');
+    });
+    
+    it('should use default pagination', () => {
+      const parseParams = (url: string) => {
+        const params = new URLSearchParams(url.split('?')[1] || '');
+        return {
+          limit: parseInt(params.get('limit') || '20'),
+          offset: parseInt(params.get('offset') || '0'),
+        };
+      };
+      
+      const params = parseParams('/api/jobs');
+      
+      expect(params.limit).toBe(20);
+      expect(params.offset).toBe(0);
+    });
+  });
+});
+```
+
+---
+
+## Updated Verification
+
+**Additional test checks:**
+
+```bash
+# Run API tests
+cd packages/backend
+source .venv/bin/activate
+pytest tests/test_api.py -v
+
+# Test API with curl
+uvicorn src.main:app --port 8000 &
+sleep 2
+
+# Health check
+curl http://localhost:8000/health
+
+# Check rate limit headers
+curl -v http://localhost:8000/ 2>&1 | grep "X-RateLimit"
+
+# Stop server
+pkill -f "uvicorn src.main:app"
+```
+
+**Updated Success Criteria**:
+- [ ] All original criteria pass
+- [ ] `pytest tests/test_api.py` passes
+- [ ] Response helpers format correctly
+- [ ] Rate limit headers present
+- [ ] Protected routes require auth

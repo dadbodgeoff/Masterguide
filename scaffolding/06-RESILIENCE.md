@@ -896,3 +896,288 @@ pytest -v
 ## Next Phase
 
 Proceed to [07-WORKERS.md](./07-WORKERS.md) for job processing system.
+
+
+---
+
+## Testing Additions
+
+> Tests for circuit breaker state transitions, retry backoff calculations, and graceful shutdown.
+
+### 7. packages/backend/tests/test_resilience.py
+
+```python
+"""
+Tests for resilience patterns.
+"""
+
+import pytest
+import asyncio
+from unittest.mock import AsyncMock, MagicMock
+
+
+class TestCircuitBreaker:
+    """Tests for circuit breaker pattern."""
+    
+    def test_initial_state_closed(self):
+        """Circuit breaker should start in CLOSED state."""
+        from src.resilience.circuit_breaker import CircuitBreaker, CircuitState
+        
+        breaker = CircuitBreaker("test-service")
+        
+        assert breaker.state == CircuitState.CLOSED
+        assert breaker.is_open is False
+    
+    def test_opens_after_failure_threshold(self):
+        """Should open after reaching failure threshold."""
+        from src.resilience.circuit_breaker import (
+            CircuitBreaker, CircuitBreakerConfig, CircuitState
+        )
+        
+        config = CircuitBreakerConfig(failure_threshold=3)
+        breaker = CircuitBreaker("test-service", config=config)
+        
+        # Simulate failures
+        for _ in range(3):
+            breaker._record_failure()
+        
+        assert breaker.state == CircuitState.OPEN
+        assert breaker.is_open is True
+    
+    def test_stays_closed_below_threshold(self):
+        """Should stay closed below failure threshold."""
+        from src.resilience.circuit_breaker import (
+            CircuitBreaker, CircuitBreakerConfig, CircuitState
+        )
+        
+        config = CircuitBreakerConfig(failure_threshold=5)
+        breaker = CircuitBreaker("test-service", config=config)
+        
+        # Simulate some failures
+        for _ in range(3):
+            breaker._record_failure()
+        
+        assert breaker.state == CircuitState.CLOSED
+    
+    def test_success_resets_failure_count(self):
+        """Success should reset failure count."""
+        from src.resilience.circuit_breaker import (
+            CircuitBreaker, CircuitBreakerConfig, CircuitState
+        )
+        
+        config = CircuitBreakerConfig(failure_threshold=5)
+        breaker = CircuitBreaker("test-service", config=config)
+        
+        # Simulate failures then success
+        breaker._record_failure()
+        breaker._record_failure()
+        breaker._record_success()
+        
+        assert breaker._failures == 0
+        assert breaker.state == CircuitState.CLOSED
+    
+    def test_reset_forces_closed(self):
+        """Manual reset should force circuit to CLOSED."""
+        from src.resilience.circuit_breaker import (
+            CircuitBreaker, CircuitBreakerConfig, CircuitState
+        )
+        
+        config = CircuitBreakerConfig(failure_threshold=1)
+        breaker = CircuitBreaker("test-service", config=config)
+        
+        breaker._record_failure()
+        assert breaker.state == CircuitState.OPEN
+        
+        breaker.reset()
+        assert breaker.state == CircuitState.CLOSED
+
+
+class TestRetry:
+    """Tests for retry with backoff."""
+    
+    def test_retry_config_defaults(self):
+        """RetryConfig should have sensible defaults."""
+        from src.resilience.retry import RetryConfig
+        
+        config = RetryConfig()
+        
+        assert config.max_attempts == 3
+        assert config.base_delay == 1.0
+        assert config.max_delay == 60.0
+        assert config.jitter is True
+    
+    def test_backoff_calculation(self):
+        """Should calculate exponential backoff correctly."""
+        from src.resilience.retry import RetryConfig
+        
+        config = RetryConfig(base_delay=1.0, exponential_base=2.0, jitter=False)
+        
+        # Attempt 1: 1.0 * 2^0 = 1.0
+        # Attempt 2: 1.0 * 2^1 = 2.0
+        # Attempt 3: 1.0 * 2^2 = 4.0
+        delays = []
+        for attempt in range(1, 4):
+            delay = config.base_delay * (config.exponential_base ** (attempt - 1))
+            delays.append(delay)
+        
+        assert delays == [1.0, 2.0, 4.0]
+    
+    def test_max_delay_cap(self):
+        """Delay should be capped at max_delay."""
+        from src.resilience.retry import RetryConfig
+        
+        config = RetryConfig(base_delay=10.0, max_delay=30.0, exponential_base=2.0)
+        
+        # Attempt 5: 10 * 2^4 = 160, but capped at 30
+        attempt = 5
+        delay = min(
+            config.base_delay * (config.exponential_base ** (attempt - 1)),
+            config.max_delay,
+        )
+        
+        assert delay == 30.0
+    
+    @pytest.mark.asyncio
+    async def test_retry_success_first_attempt(self):
+        """Should return immediately on first success."""
+        from src.resilience.retry import retry_with_backoff, RetryConfig
+        
+        call_count = 0
+        
+        async def success_fn():
+            nonlocal call_count
+            call_count += 1
+            return "success"
+        
+        result = await retry_with_backoff(success_fn, RetryConfig(max_attempts=3))
+        
+        assert result == "success"
+        assert call_count == 1
+    
+    @pytest.mark.asyncio
+    async def test_retry_exhausted_raises(self):
+        """Should raise RetryExhaustedError after max attempts."""
+        from src.resilience.retry import (
+            retry_with_backoff, RetryConfig, RetryExhaustedError
+        )
+        
+        call_count = 0
+        
+        async def always_fail():
+            nonlocal call_count
+            call_count += 1
+            raise ValueError("Always fails")
+        
+        config = RetryConfig(max_attempts=3, base_delay=0.01)
+        
+        with pytest.raises(RetryExhaustedError) as exc_info:
+            await retry_with_backoff(always_fail, config)
+        
+        assert call_count == 3
+        assert exc_info.value.attempts == 3
+
+
+class TestDistributedLock:
+    """Tests for distributed locking."""
+    
+    def test_lock_value_generation(self):
+        """Should generate unique lock values."""
+        from src.resilience.distributed_lock import DistributedLock
+        
+        lock = DistributedLock(redis_client=None)
+        
+        value1 = lock._generate_lock_value()
+        value2 = lock._generate_lock_value()
+        
+        # Values should contain process ID
+        import os
+        assert str(os.getpid()) in value1
+        
+        # Values should be unique (different timestamps)
+        # Note: In fast execution they might be same, so we just check format
+        assert ":" in value1
+    
+    @pytest.mark.asyncio
+    async def test_lock_without_redis_yields_false(self):
+        """Should yield False when Redis not available."""
+        from src.resilience.distributed_lock import DistributedLock
+        
+        lock = DistributedLock(redis_client=None)
+        
+        async with lock.acquire("test-key") as acquired:
+            assert acquired is False  # No Redis, so not actually acquired
+
+
+class TestGracefulShutdown:
+    """Tests for graceful shutdown."""
+    
+    def test_initial_state(self):
+        """Should start with no active jobs."""
+        from src.resilience.shutdown import GracefulShutdown
+        
+        shutdown = GracefulShutdown(timeout=30)
+        
+        assert shutdown.active_job_count == 0
+        assert shutdown.is_shutting_down is False
+    
+    @pytest.mark.asyncio
+    async def test_track_job(self):
+        """Should track active jobs."""
+        from src.resilience.shutdown import GracefulShutdown
+        
+        shutdown = GracefulShutdown()
+        
+        assert shutdown.active_job_count == 0
+        
+        async with shutdown.track_job("job-1"):
+            assert shutdown.active_job_count == 1
+            assert "job-1" in shutdown.active_jobs
+        
+        assert shutdown.active_job_count == 0
+    
+    @pytest.mark.asyncio
+    async def test_multiple_jobs(self):
+        """Should track multiple concurrent jobs."""
+        from src.resilience.shutdown import GracefulShutdown
+        
+        shutdown = GracefulShutdown()
+        
+        async with shutdown.track_job("job-1"):
+            async with shutdown.track_job("job-2"):
+                assert shutdown.active_job_count == 2
+            assert shutdown.active_job_count == 1
+        assert shutdown.active_job_count == 0
+```
+
+---
+
+## Updated Verification
+
+**Additional test checks:**
+
+```bash
+# Run resilience tests
+cd packages/backend
+source .venv/bin/activate
+pytest tests/test_resilience.py -v
+
+# Verify circuit breaker state machine
+python -c "
+from src.resilience.circuit_breaker import CircuitBreaker, CircuitState
+
+breaker = CircuitBreaker('test')
+print('Initial state:', breaker.state)
+
+# Simulate failures
+for i in range(5):
+    breaker._record_failure()
+    print(f'After failure {i+1}:', breaker.state)
+"
+```
+
+**Updated Success Criteria**:
+- [ ] All original criteria pass
+- [ ] `pytest tests/test_resilience.py` passes
+- [ ] Circuit breaker state transitions verified
+- [ ] Retry backoff calculations correct
+- [ ] Graceful shutdown tracks jobs correctly

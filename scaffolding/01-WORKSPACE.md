@@ -20,6 +20,13 @@
 - `packages/types/` — Shared TypeScript types package
 - `packages/backend/` — Python FastAPI backend skeleton
 - `supabase/` — Supabase config
+- `packages/backend/conftest.py` — Pytest fixtures (mock Supabase, mock Redis)
+- `apps/web/vitest.config.ts` — Vitest configuration
+- `apps/web/tests/setup.ts` — Test setup with mocks
+- `apps/web/tests/utils.tsx` — Test utilities with providers
+- `.github/workflows/ci.yml` — CI pipeline (lint, test, build)
+- `.pre-commit-config.yaml` — Pre-commit hooks
+- `docs/adr/` — Architecture Decision Records
 
 **Execution approach**:
 1. Create all root-level config files first
@@ -877,3 +884,578 @@ pnpm dev
 ## Next Phase
 
 Proceed to [02-ENVIRONMENT.md](./02-ENVIRONMENT.md) for environment configuration and validation.
+
+
+---
+
+## Testing, CI & Developer Experience Additions
+
+> These artifacts establish the testing infrastructure, CI pipeline, and developer tooling that all subsequent phases build upon.
+
+### 25. packages/backend/conftest.py
+
+```python
+"""
+Pytest configuration and shared fixtures.
+
+This file is automatically loaded by pytest and provides fixtures
+available to all tests in the backend package.
+"""
+
+import asyncio
+from collections.abc import AsyncGenerator, Generator
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+from fastapi.testclient import TestClient
+
+
+@pytest.fixture(scope="session")
+def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
+    """Create an event loop for the test session."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest.fixture
+def mock_supabase() -> MagicMock:
+    """
+    Mock Supabase client for testing without database.
+    
+    Usage:
+        def test_something(mock_supabase):
+            mock_supabase.table("users").select.return_value.execute.return_value = 
+                MagicMock(data=[{"id": "123", "email": "test@example.com"}])
+    """
+    mock = MagicMock()
+    
+    # Setup chainable methods
+    mock.table.return_value = mock
+    mock.select.return_value = mock
+    mock.insert.return_value = mock
+    mock.update.return_value = mock
+    mock.delete.return_value = mock
+    mock.eq.return_value = mock
+    mock.neq.return_value = mock
+    mock.gt.return_value = mock
+    mock.lt.return_value = mock
+    mock.gte.return_value = mock
+    mock.lte.return_value = mock
+    mock.order.return_value = mock
+    mock.limit.return_value = mock
+    mock.range.return_value = mock
+    mock.single.return_value = mock
+    mock.execute.return_value = MagicMock(data=[], count=0)
+    
+    return mock
+
+
+@pytest.fixture
+def mock_redis() -> AsyncMock:
+    """
+    Mock Redis client for testing without Redis.
+    
+    Usage:
+        async def test_something(mock_redis):
+            mock_redis.get.return_value = "cached_value"
+    """
+    mock = AsyncMock()
+    mock.get.return_value = None
+    mock.set.return_value = True
+    mock.setex.return_value = True
+    mock.delete.return_value = 1
+    mock.exists.return_value = 0
+    mock.expire.return_value = True
+    mock.ttl.return_value = -1
+    mock.incr.return_value = 1
+    mock.decr.return_value = 0
+    mock.lpush.return_value = 1
+    mock.rpush.return_value = 1
+    mock.lpop.return_value = None
+    mock.rpop.return_value = None
+    mock.lrange.return_value = []
+    mock.llen.return_value = 0
+    mock.zadd.return_value = 1
+    mock.zrange.return_value = []
+    mock.zpopmin.return_value = []
+    mock.zcard.return_value = 0
+    return mock
+
+
+@pytest.fixture
+def test_user() -> dict[str, Any]:
+    """Standard test user data."""
+    return {
+        "id": "test-user-123",
+        "email": "test@example.com",
+        "name": "Test User",
+        "subscription_tier": "free",
+        "subscription_status": "active",
+        "monthly_usage": 0,
+        "created_at": "2024-01-01T00:00:00Z",
+    }
+
+
+@pytest.fixture
+def test_pro_user() -> dict[str, Any]:
+    """Test user with pro subscription."""
+    return {
+        "id": "pro-user-456",
+        "email": "pro@example.com",
+        "name": "Pro User",
+        "subscription_tier": "pro",
+        "subscription_status": "active",
+        "monthly_usage": 50,
+        "created_at": "2024-01-01T00:00:00Z",
+    }
+
+
+@pytest.fixture
+def auth_headers(test_user: dict[str, Any]) -> dict[str, str]:
+    """
+    Generate auth headers for testing authenticated endpoints.
+    
+    Note: In actual tests, you may need to mock JWT validation
+    or use a test JWT secret.
+    """
+    return {
+        "Authorization": "Bearer test-token",
+        "X-User-ID": test_user["id"],
+    }
+```
+
+### 26. packages/backend/tests/__init__.py
+
+```python
+"""Backend test package."""
+```
+
+### 27. apps/web/vitest.config.ts
+
+```typescript
+import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./tests/setup.ts'],
+    include: ['**/*.test.{ts,tsx}'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        'node_modules/',
+        'tests/',
+        '**/*.d.ts',
+        '**/*.config.*',
+        '.next/',
+      ],
+    },
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './'),
+      '@project/types': path.resolve(__dirname, '../../packages/types/src'),
+    },
+  },
+});
+```
+
+### 28. apps/web/tests/setup.ts
+
+```typescript
+/**
+ * Vitest setup file.
+ * 
+ * This runs before each test file and sets up the testing environment.
+ */
+
+import { expect, afterEach, vi } from 'vitest';
+import { cleanup } from '@testing-library/react';
+import * as matchers from '@testing-library/jest-dom/matchers';
+
+// Extend Vitest's expect with Testing Library matchers
+expect.extend(matchers);
+
+// Cleanup after each test
+afterEach(() => {
+  cleanup();
+});
+
+// Mock Next.js router
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    prefetch: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+  }),
+  usePathname: () => '/',
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+// Mock environment variables
+vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://test.supabase.co');
+vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'test-anon-key');
+```
+
+### 29. apps/web/tests/utils.tsx
+
+```typescript
+/**
+ * Test utilities for React component testing.
+ */
+
+import { ReactElement, ReactNode } from 'react';
+import { render, RenderOptions } from '@testing-library/react';
+
+// Add providers that wrap your app here
+interface ProvidersProps {
+  children: ReactNode;
+}
+
+function TestProviders({ children }: ProvidersProps) {
+  // Add AuthProvider, ThemeProvider, etc. as needed
+  // For now, just return children
+  return <>{children}</>;
+}
+
+/**
+ * Custom render function that wraps components with providers.
+ */
+function customRender(
+  ui: ReactElement,
+  options?: Omit<RenderOptions, 'wrapper'>
+) {
+  return render(ui, { wrapper: TestProviders, ...options });
+}
+
+// Re-export everything from testing-library
+export * from '@testing-library/react';
+export { customRender as render };
+```
+
+### 30. .github/workflows/ci.yml
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-typecheck:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10
+          
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        
+      - name: Build types package
+        run: pnpm --filter @project/types build
+        
+      - name: Lint
+        run: pnpm lint
+        
+      - name: Type check
+        run: pnpm --filter @project/web tsc --noEmit
+
+  test-frontend:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10
+          
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        
+      - name: Build types package
+        run: pnpm --filter @project/types build
+        
+      - name: Run tests
+        run: pnpm --filter @project/web test -- --coverage
+        
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./apps/web/coverage/coverage-final.json
+          flags: frontend
+
+  test-backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        working-directory: packages/backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          
+      - name: Run linting
+        working-directory: packages/backend
+        run: |
+          ruff check src/ tests/
+          mypy src/
+          
+      - name: Run tests
+        working-directory: packages/backend
+        run: pytest --cov=src --cov-report=xml
+        
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./packages/backend/coverage.xml
+          flags: backend
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint-and-typecheck, test-frontend, test-backend]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10
+          
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        
+      - name: Build all packages
+        run: pnpm build
+```
+
+### 31. .pre-commit-config.yaml
+
+```yaml
+# Pre-commit hooks configuration
+# Install: pip install pre-commit && pre-commit install
+
+repos:
+  # General hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  # Python - Ruff (fast linter + formatter)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^packages/backend/
+      - id: ruff-format
+        files: ^packages/backend/
+
+  # Python - Type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        files: ^packages/backend/src/
+        additional_dependencies:
+          - pydantic>=2.7.0
+          - fastapi>=0.111.0
+
+  # JavaScript/TypeScript - ESLint
+  - repo: local
+    hooks:
+      - id: eslint
+        name: ESLint
+        entry: pnpm --filter @project/web lint
+        language: system
+        files: \.(ts|tsx|js|jsx)$
+        pass_filenames: false
+```
+
+### 32. docs/adr/000-template.md
+
+```markdown
+# ADR-000: [Title]
+
+## Status
+
+[Proposed | Accepted | Deprecated | Superseded by ADR-XXX]
+
+## Context
+
+What is the issue that we're seeing that is motivating this decision or change?
+
+## Decision
+
+What is the change that we're proposing and/or doing?
+
+## Consequences
+
+What becomes easier or more difficult to do because of this change?
+
+### Positive
+
+- 
+
+### Negative
+
+- 
+
+### Neutral
+
+- 
+
+## References
+
+- [Link to relevant documentation]
+- [Link to related ADRs]
+```
+
+### 33. docs/adr/001-monorepo-structure.md
+
+```markdown
+# ADR-001: Monorepo with Turborepo and pnpm
+
+## Status
+
+Accepted
+
+## Context
+
+We need a project structure that supports:
+- Multiple applications (frontend, potentially mobile)
+- Shared code between applications
+- A Python backend that doesn't fit in the Node.js ecosystem
+- Fast builds with caching
+- Clear dependency boundaries
+
+## Decision
+
+Use a monorepo structure with:
+- **Turborepo** for task orchestration and caching
+- **pnpm** for package management (faster, stricter than npm/yarn)
+- **Workspace packages** for shared TypeScript code
+- **Separate Python package** for backend (managed outside pnpm)
+
+Structure:
+```
+├── apps/
+│   └── web/          # Next.js frontend
+├── packages/
+│   ├── types/        # Shared TypeScript types
+│   └── backend/      # Python FastAPI (not a pnpm workspace)
+└── supabase/         # Database migrations
+```
+
+## Consequences
+
+### Positive
+
+- Single repository for all code
+- Shared types prevent drift between frontend and backend contracts
+- Turborepo caching speeds up CI significantly
+- Clear boundaries between packages
+
+### Negative
+
+- Python backend requires separate tooling (pip, venv)
+- Developers need familiarity with both ecosystems
+- Some IDE features work better with single-language repos
+
+### Neutral
+
+- Need to maintain two sets of linting/testing configs
+- Deployment pipelines need to handle both Node.js and Python
+
+## References
+
+- [Turborepo documentation](https://turbo.build/repo/docs)
+- [pnpm workspaces](https://pnpm.io/workspaces)
+```
+
+---
+
+## Updated Verification
+
+After creating all files including testing infrastructure, run:
+
+```bash
+node Masterguide/scaffolding/scripts/verify-phase.js 01
+```
+
+**Additional manual checks:**
+
+```bash
+# 1. Verify pytest setup
+cd packages/backend
+python -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+pip install -e ".[dev]"
+pytest --collect-only  # Should find conftest.py
+
+# 2. Verify vitest setup
+cd ../../apps/web
+pnpm add -D @vitejs/plugin-react @testing-library/react @testing-library/jest-dom jsdom
+pnpm test  # Should run without errors (no tests yet)
+
+# 3. Verify pre-commit (optional)
+pip install pre-commit
+pre-commit install
+pre-commit run --all-files
+```
+
+**Updated Success Criteria**:
+- [ ] All original criteria pass
+- [ ] `pytest --collect-only` finds conftest.py fixtures
+- [ ] `pnpm --filter @project/web test` runs without config errors
+- [ ] `.github/workflows/ci.yml` is valid YAML
+- [ ] Pre-commit hooks install successfully

@@ -9,19 +9,23 @@
 | Document | Time | What It Creates |
 |----------|------|-----------------|
 | [00-MANIFEST](scaffolding/00-MANIFEST.md) | - | Execution guide and dependency map |
-| [01-WORKSPACE](scaffolding/01-WORKSPACE.md) | 10m | Monorepo, tooling, git |
+| [01-WORKSPACE](scaffolding/01-WORKSPACE.md) | 10m | Monorepo, tooling, git, CI, testing setup |
 | [02-ENVIRONMENT](scaffolding/02-ENVIRONMENT.md) | 5m | Type-safe env validation |
-| [03-TYPES](scaffolding/03-TYPES.md) | 10m | Shared types, exceptions |
-| [04-DATABASE](scaffolding/04-DATABASE.md) | 10m | Schema, migrations, RLS |
-| [05-AUTH](scaffolding/05-AUTH.md) | 15m | Auth infrastructure |
-| [06-RESILIENCE](scaffolding/06-RESILIENCE.md) | 15m | Circuit breakers, retries |
-| [07-WORKERS](scaffolding/07-WORKERS.md) | 15m | Job system, state machine |
-| [08-API](scaffolding/08-API.md) | 10m | API foundation, middleware |
+| [03-TYPES](scaffolding/03-TYPES.md) | 10m | Shared types, exceptions, type tests |
+| [04-DATABASE](scaffolding/04-DATABASE.md) | 10m | Schema, migrations, RLS, fixtures, seeding |
+| [05-AUTH](scaffolding/05-AUTH.md) | 15m | Auth infrastructure, auth tests |
+| [06-RESILIENCE](scaffolding/06-RESILIENCE.md) | 15m | Circuit breakers, retries, resilience tests |
+| [07-WORKERS](scaffolding/07-WORKERS.md) | 15m | Job system, state machine, worker tests |
+| [08-API](scaffolding/08-API.md) | 10m | API foundation, middleware, API tests |
 | [09-OBSERVABILITY](scaffolding/09-OBSERVABILITY.md) | 10m | Logging, metrics, health |
-| [10-INTEGRATIONS](scaffolding/10-INTEGRATIONS.md) | 10m | Stripe, webhooks, email |
-| [11-FRONTEND](scaffolding/11-FRONTEND.md) | 15m | Design tokens, components |
+| [10-INTEGRATIONS](scaffolding/10-INTEGRATIONS.md) | 10m | Stripe, webhooks, email, integration tests |
+| [11-FRONTEND](scaffolding/11-FRONTEND.md) | 15m | Design tokens, components, component tests |
+| [12-SECURITY](scaffolding/12-SECURITY.md) | 20m | CSP, CORS, audit logging, input sanitization |
+| [13-FILE-STORAGE](scaffolding/13-FILE-STORAGE.md) | 15m | Supabase Storage, uploads, signed URLs |
+| [14-CACHING](scaffolding/14-CACHING.md) | 15m | Redis client, cache patterns, sessions |
+| [15-DEPLOYMENT](scaffolding/15-DEPLOYMENT.md) | 20m | Docker Compose, Dockerfiles, health checks |
 
-**Total**: ~2 hours for complete enterprise foundation
+**Total**: ~3 hours for complete enterprise foundation with testing
 
 ---
 

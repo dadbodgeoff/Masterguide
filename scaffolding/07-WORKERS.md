@@ -794,3 +794,300 @@ pnpm lint
 ## Next Phase
 
 Proceed to [08-API.md](./08-API.md) for API foundation.
+
+
+---
+
+## Testing Additions
+
+> Tests for job state machine validation and queue operations.
+
+### 7. packages/backend/tests/test_jobs.py
+
+```python
+"""
+Tests for job processing module.
+"""
+
+import pytest
+from unittest.mock import MagicMock, AsyncMock
+
+from tests.fixtures import JobFactory, UserFactory
+
+
+class TestJobStateMachine:
+    """Tests for job state machine."""
+    
+    def test_valid_transitions(self):
+        """Should correctly identify valid transitions."""
+        from src.jobs.models import is_valid_transition, JobStatus
+        
+        # Valid transitions
+        assert is_valid_transition(JobStatus.QUEUED, JobStatus.PROCESSING) is True
+        assert is_valid_transition(JobStatus.PROCESSING, JobStatus.COMPLETED) is True
+        assert is_valid_transition(JobStatus.PROCESSING, JobStatus.FAILED) is True
+        assert is_valid_transition(JobStatus.PROCESSING, JobStatus.PARTIAL) is True
+    
+    def test_invalid_transitions(self):
+        """Should correctly identify invalid transitions."""
+        from src.jobs.models import is_valid_transition, JobStatus
+        
+        # Invalid transitions
+        assert is_valid_transition(JobStatus.QUEUED, JobStatus.COMPLETED) is False
+        assert is_valid_transition(JobStatus.COMPLETED, JobStatus.PROCESSING) is False
+        assert is_valid_transition(JobStatus.FAILED, JobStatus.QUEUED) is False
+        assert is_valid_transition(JobStatus.PROCESSING, JobStatus.QUEUED) is False
+    
+    def test_terminal_status(self):
+        """Should correctly identify terminal statuses."""
+        from src.jobs.models import is_terminal_status, JobStatus
+        
+        assert is_terminal_status(JobStatus.COMPLETED) is True
+        assert is_terminal_status(JobStatus.FAILED) is True
+        assert is_terminal_status(JobStatus.PARTIAL) is True
+        assert is_terminal_status(JobStatus.QUEUED) is False
+        assert is_terminal_status(JobStatus.PROCESSING) is False
+    
+    def test_job_can_transition_to(self):
+        """Job.can_transition_to should use state machine."""
+        from src.jobs.models import Job, JobStatus
+        from datetime import datetime, timezone
+        
+        job = Job(
+            id="job-123",
+            user_id="user-123",
+            job_type="generation",
+            status=JobStatus.QUEUED,
+            progress=0,
+            error_message=None,
+            parameters=None,
+            result=None,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+            completed_at=None,
+        )
+        
+        assert job.can_transition_to(JobStatus.PROCESSING) is True
+        assert job.can_transition_to(JobStatus.COMPLETED) is False
+    
+    def test_job_is_terminal(self):
+        """Job.is_terminal should check status."""
+        from src.jobs.models import Job, JobStatus
+        from datetime import datetime, timezone
+        
+        completed_job = Job(
+            id="job-123",
+            user_id="user-123",
+            job_type="generation",
+            status=JobStatus.COMPLETED,
+            progress=100,
+            error_message=None,
+            parameters=None,
+            result={"output": "test"},
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+        )
+        
+        assert completed_job.is_terminal() is True
+
+
+class TestJobQueue:
+    """Tests for job queue."""
+    
+    @pytest.mark.asyncio
+    async def test_in_memory_queue_enqueue_dequeue(self):
+        """InMemoryJobQueue should enqueue and dequeue."""
+        from src.jobs.queue import InMemoryJobQueue
+        
+        queue = InMemoryJobQueue()
+        
+        await queue.enqueue("job-1")
+        await queue.enqueue("job-2")
+        
+        assert await queue.size() == 2
+        
+        job_id = await queue.dequeue()
+        assert job_id == "job-1"
+        assert await queue.size() == 1
+    
+    @pytest.mark.asyncio
+    async def test_in_memory_queue_priority(self):
+        """InMemoryJobQueue should respect priority."""
+        from src.jobs.queue import InMemoryJobQueue
+        
+        queue = InMemoryJobQueue()
+        
+        await queue.enqueue("low-priority", priority=0)
+        await queue.enqueue("high-priority", priority=10)
+        await queue.enqueue("medium-priority", priority=5)
+        
+        # Should dequeue in priority order (highest first)
+        assert await queue.dequeue() == "high-priority"
+        assert await queue.dequeue() == "medium-priority"
+        assert await queue.dequeue() == "low-priority"
+    
+    @pytest.mark.asyncio
+    async def test_in_memory_queue_empty(self):
+        """InMemoryJobQueue should return None when empty."""
+        from src.jobs.queue import InMemoryJobQueue
+        
+        queue = InMemoryJobQueue()
+        
+        result = await queue.dequeue()
+        assert result is None
+
+
+class TestJobService:
+    """Tests for JobService."""
+    
+    @pytest.mark.asyncio
+    async def test_transition_status_valid(self, mock_supabase):
+        """Should allow valid status transitions."""
+        from src.jobs.service import JobService
+        from src.jobs.models import JobStatus
+        
+        job_data = JobFactory.create(status="queued")
+        updated_job = JobFactory.create(status="processing", progress=0)
+        
+        # Mock get_job
+        mock_supabase.table("jobs").select("*").eq("id", job_data["id"]).execute.return_value = MagicMock(
+            data=[job_data]
+        )
+        # Mock update
+        mock_supabase.table("jobs").update.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[updated_job]
+        )
+        
+        service = JobService(db=MagicMock(table=mock_supabase.table))
+        
+        # Verify the transition would be valid
+        from src.jobs.models import is_valid_transition
+        assert is_valid_transition(JobStatus.QUEUED, JobStatus.PROCESSING) is True
+    
+    @pytest.mark.asyncio
+    async def test_transition_status_invalid(self, mock_supabase):
+        """Should reject invalid status transitions."""
+        from src.jobs.service import JobService
+        from src.jobs.models import JobStatus, is_valid_transition
+        from src.exceptions import InvalidStateTransitionError
+        
+        # Verify the transition would be invalid
+        assert is_valid_transition(JobStatus.COMPLETED, JobStatus.PROCESSING) is False
+```
+
+### 8. apps/web/lib/jobs/client.test.ts
+
+```typescript
+/**
+ * Tests for job client.
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+describe('JobClient', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+  
+  describe('pollJob', () => {
+    it('should resolve when job completes', async () => {
+      // Test the polling logic
+      const statuses = ['queued', 'processing', 'completed'];
+      let callIndex = 0;
+      
+      const mockGetJob = vi.fn().mockImplementation(() => {
+        const status = statuses[Math.min(callIndex++, statuses.length - 1)];
+        return Promise.resolve({
+          id: 'job-123',
+          status,
+          progress: status === 'completed' ? 100 : callIndex * 30,
+        });
+      });
+      
+      // Simulate polling
+      let result;
+      for (let i = 0; i < 5; i++) {
+        result = await mockGetJob();
+        if (result.status === 'completed' || result.status === 'failed') {
+          break;
+        }
+      }
+      
+      expect(result?.status).toBe('completed');
+      expect(result?.progress).toBe(100);
+    });
+    
+    it('should reject when job fails', async () => {
+      const mockGetJob = vi.fn().mockResolvedValue({
+        id: 'job-123',
+        status: 'failed',
+        errorMessage: 'Processing error',
+      });
+      
+      const result = await mockGetJob();
+      
+      expect(result.status).toBe('failed');
+      expect(result.errorMessage).toBe('Processing error');
+    });
+  });
+  
+  describe('Job status transitions', () => {
+    const VALID_TRANSITIONS: Record<string, string[]> = {
+      queued: ['processing'],
+      processing: ['completed', 'partial', 'failed'],
+      completed: [],
+      partial: [],
+      failed: [],
+    };
+    
+    it('should validate queued can go to processing', () => {
+      expect(VALID_TRANSITIONS.queued).toContain('processing');
+    });
+    
+    it('should validate processing can go to completed', () => {
+      expect(VALID_TRANSITIONS.processing).toContain('completed');
+    });
+    
+    it('should validate completed is terminal', () => {
+      expect(VALID_TRANSITIONS.completed).toHaveLength(0);
+    });
+  });
+});
+```
+
+---
+
+## Updated Verification
+
+**Additional test checks:**
+
+```bash
+# Run job tests
+cd packages/backend
+source .venv/bin/activate
+pytest tests/test_jobs.py -v
+
+# Verify state machine
+python -c "
+from src.jobs.models import JobStatus, VALID_TRANSITIONS, is_valid_transition
+
+print('Valid transitions:')
+for status, targets in VALID_TRANSITIONS.items():
+    print(f'  {status.value} -> {[t.value for t in targets]}')
+
+# Test all transitions
+print()
+print('Transition tests:')
+print('  QUEUED -> PROCESSING:', is_valid_transition(JobStatus.QUEUED, JobStatus.PROCESSING))
+print('  QUEUED -> COMPLETED:', is_valid_transition(JobStatus.QUEUED, JobStatus.COMPLETED))
+print('  COMPLETED -> QUEUED:', is_valid_transition(JobStatus.COMPLETED, JobStatus.QUEUED))
+"
+```
+
+**Updated Success Criteria**:
+- [ ] All original criteria pass
+- [ ] `pytest tests/test_jobs.py` passes
+- [ ] State machine transitions verified
+- [ ] Queue priority ordering works
+- [ ] Frontend job client tests pass

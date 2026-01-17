@@ -785,3 +785,598 @@ You have now scaffolded a complete enterprise-grade SaaS foundation.
 For deeper understanding of any pattern, see:
 - [../INDEX.md](../INDEX.md) - Full pattern index
 - Individual pattern docs in parent directories
+
+
+---
+
+## Component Testing Additions
+
+> These artifacts establish frontend component testing patterns using Vitest and Testing Library.
+
+### 14. apps/web/tests/components/button.test.tsx
+
+```typescript
+/**
+ * Button component tests.
+ */
+
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '../utils';
+import { Button } from '@/components/ui/button';
+
+describe('Button', () => {
+  it('renders children correctly', () => {
+    render(<Button>Click me</Button>);
+    expect(screen.getByRole('button', { name: /click me/i })).toBeInTheDocument();
+  });
+
+  it('applies variant styles', () => {
+    const { rerender } = render(<Button variant="primary">Primary</Button>);
+    expect(screen.getByRole('button')).toHaveClass('bg-primary-600');
+
+    rerender(<Button variant="danger">Danger</Button>);
+    expect(screen.getByRole('button')).toHaveClass('bg-red-600');
+
+    rerender(<Button variant="outline">Outline</Button>);
+    expect(screen.getByRole('button')).toHaveClass('border');
+  });
+
+  it('applies size styles', () => {
+    const { rerender } = render(<Button size="sm">Small</Button>);
+    expect(screen.getByRole('button')).toHaveClass('px-3', 'py-1.5');
+
+    rerender(<Button size="lg">Large</Button>);
+    expect(screen.getByRole('button')).toHaveClass('px-6', 'py-3');
+  });
+
+  it('shows loading spinner when isLoading', () => {
+    render(<Button isLoading>Loading</Button>);
+    const button = screen.getByRole('button');
+    expect(button).toBeDisabled();
+    expect(button.querySelector('svg')).toBeInTheDocument();
+  });
+
+  it('is disabled when disabled prop is true', () => {
+    render(<Button disabled>Disabled</Button>);
+    expect(screen.getByRole('button')).toBeDisabled();
+  });
+
+  it('calls onClick handler when clicked', () => {
+    const handleClick = vi.fn();
+    render(<Button onClick={handleClick}>Click</Button>);
+    fireEvent.click(screen.getByRole('button'));
+    expect(handleClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call onClick when disabled', () => {
+    const handleClick = vi.fn();
+    render(<Button disabled onClick={handleClick}>Click</Button>);
+    fireEvent.click(screen.getByRole('button'));
+    expect(handleClick).not.toHaveBeenCalled();
+  });
+
+  it('does not call onClick when loading', () => {
+    const handleClick = vi.fn();
+    render(<Button isLoading onClick={handleClick}>Click</Button>);
+    fireEvent.click(screen.getByRole('button'));
+    expect(handleClick).not.toHaveBeenCalled();
+  });
+
+  it('forwards ref correctly', () => {
+    const ref = vi.fn();
+    render(<Button ref={ref}>Button</Button>);
+    expect(ref).toHaveBeenCalled();
+    expect(ref.mock.calls[0][0]).toBeInstanceOf(HTMLButtonElement);
+  });
+});
+```
+
+### 15. apps/web/tests/components/input.test.tsx
+
+```typescript
+/**
+ * Input component tests.
+ */
+
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '../utils';
+import { Input } from '@/components/ui/input';
+
+describe('Input', () => {
+  it('renders with label', () => {
+    render(<Input label="Email" />);
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+  });
+
+  it('generates id from label', () => {
+    render(<Input label="First Name" />);
+    const input = screen.getByLabelText(/first name/i);
+    expect(input).toHaveAttribute('id', 'first-name');
+  });
+
+  it('uses provided id over generated', () => {
+    render(<Input label="Email" id="custom-id" />);
+    const input = screen.getByLabelText(/email/i);
+    expect(input).toHaveAttribute('id', 'custom-id');
+  });
+
+  it('shows error message', () => {
+    render(<Input label="Email" error="Invalid email" />);
+    expect(screen.getByText(/invalid email/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/email/i)).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('shows hint when no error', () => {
+    render(<Input label="Email" hint="We'll never share your email" />);
+    expect(screen.getByText(/we'll never share/i)).toBeInTheDocument();
+  });
+
+  it('hides hint when error is present', () => {
+    render(<Input label="Email" hint="Hint text" error="Error text" />);
+    expect(screen.queryByText(/hint text/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/error text/i)).toBeInTheDocument();
+  });
+
+  it('applies error styles when error is present', () => {
+    render(<Input label="Email" error="Invalid" />);
+    const input = screen.getByLabelText(/email/i);
+    expect(input).toHaveClass('border-red-300');
+  });
+
+  it('handles value changes', () => {
+    const handleChange = vi.fn();
+    render(<Input label="Email" onChange={handleChange} />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
+    expect(handleChange).toHaveBeenCalled();
+  });
+
+  it('is disabled when disabled prop is true', () => {
+    render(<Input label="Email" disabled />);
+    expect(screen.getByLabelText(/email/i)).toBeDisabled();
+  });
+
+  it('forwards ref correctly', () => {
+    const ref = vi.fn();
+    render(<Input label="Email" ref={ref} />);
+    expect(ref).toHaveBeenCalled();
+    expect(ref.mock.calls[0][0]).toBeInstanceOf(HTMLInputElement);
+  });
+
+  it('sets aria-describedby for error', () => {
+    render(<Input label="Email" id="email" error="Invalid" />);
+    const input = screen.getByLabelText(/email/i);
+    expect(input).toHaveAttribute('aria-describedby', 'email-error');
+  });
+
+  it('sets aria-describedby for hint', () => {
+    render(<Input label="Email" id="email" hint="Hint" />);
+    const input = screen.getByLabelText(/email/i);
+    expect(input).toHaveAttribute('aria-describedby', 'email-hint');
+  });
+});
+```
+
+### 16. apps/web/tests/components/card.test.tsx
+
+```typescript
+/**
+ * Card component tests.
+ */
+
+import { describe, it, expect } from 'vitest';
+import { render, screen } from '../utils';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+
+describe('Card', () => {
+  it('renders children', () => {
+    render(<Card>Card content</Card>);
+    expect(screen.getByText(/card content/i)).toBeInTheDocument();
+  });
+
+  it('applies custom className', () => {
+    render(<Card className="custom-class">Content</Card>);
+    expect(screen.getByText(/content/i).parentElement).toHaveClass('custom-class');
+  });
+
+  it('has default styles', () => {
+    render(<Card data-testid="card">Content</Card>);
+    const card = screen.getByTestId('card');
+    expect(card).toHaveClass('rounded-xl', 'border', 'bg-white', 'shadow-sm');
+  });
+});
+
+describe('CardHeader', () => {
+  it('renders children', () => {
+    render(<CardHeader>Header content</CardHeader>);
+    expect(screen.getByText(/header content/i)).toBeInTheDocument();
+  });
+
+  it('has border-bottom style', () => {
+    render(<CardHeader data-testid="header">Header</CardHeader>);
+    expect(screen.getByTestId('header')).toHaveClass('border-b');
+  });
+});
+
+describe('CardTitle', () => {
+  it('renders as h3', () => {
+    render(<CardTitle>Title</CardTitle>);
+    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('Title');
+  });
+
+  it('has correct styles', () => {
+    render(<CardTitle>Title</CardTitle>);
+    expect(screen.getByRole('heading')).toHaveClass('text-lg', 'font-semibold');
+  });
+});
+
+describe('CardDescription', () => {
+  it('renders description text', () => {
+    render(<CardDescription>Description text</CardDescription>);
+    expect(screen.getByText(/description text/i)).toBeInTheDocument();
+  });
+
+  it('has muted text style', () => {
+    render(<CardDescription data-testid="desc">Desc</CardDescription>);
+    expect(screen.getByTestId('desc')).toHaveClass('text-gray-500');
+  });
+});
+
+describe('CardContent', () => {
+  it('renders children', () => {
+    render(<CardContent>Main content</CardContent>);
+    expect(screen.getByText(/main content/i)).toBeInTheDocument();
+  });
+
+  it('has padding', () => {
+    render(<CardContent data-testid="content">Content</CardContent>);
+    expect(screen.getByTestId('content')).toHaveClass('px-6', 'py-4');
+  });
+});
+
+describe('CardFooter', () => {
+  it('renders children', () => {
+    render(<CardFooter>Footer content</CardFooter>);
+    expect(screen.getByText(/footer content/i)).toBeInTheDocument();
+  });
+
+  it('has background and border-top', () => {
+    render(<CardFooter data-testid="footer">Footer</CardFooter>);
+    const footer = screen.getByTestId('footer');
+    expect(footer).toHaveClass('border-t', 'bg-gray-50');
+  });
+});
+
+describe('Card composition', () => {
+  it('renders full card structure', () => {
+    render(
+      <Card>
+        <CardHeader>
+          <CardTitle>Card Title</CardTitle>
+          <CardDescription>Card description</CardDescription>
+        </CardHeader>
+        <CardContent>Main content here</CardContent>
+        <CardFooter>Footer actions</CardFooter>
+      </Card>
+    );
+
+    expect(screen.getByRole('heading', { name: /card title/i })).toBeInTheDocument();
+    expect(screen.getByText(/card description/i)).toBeInTheDocument();
+    expect(screen.getByText(/main content here/i)).toBeInTheDocument();
+    expect(screen.getByText(/footer actions/i)).toBeInTheDocument();
+  });
+});
+```
+
+### 17. apps/web/tests/lib/utils.test.ts
+
+```typescript
+/**
+ * Utility function tests.
+ */
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { cn, formatDate, formatRelativeTime, truncate } from '@/lib/utils';
+
+describe('cn', () => {
+  it('merges class names', () => {
+    expect(cn('foo', 'bar')).toBe('foo bar');
+  });
+
+  it('handles conditional classes', () => {
+    expect(cn('foo', false && 'bar', 'baz')).toBe('foo baz');
+  });
+
+  it('handles arrays', () => {
+    expect(cn(['foo', 'bar'])).toBe('foo bar');
+  });
+
+  it('handles objects', () => {
+    expect(cn({ foo: true, bar: false, baz: true })).toBe('foo baz');
+  });
+
+  it('resolves Tailwind conflicts', () => {
+    expect(cn('px-2', 'px-4')).toBe('px-4');
+    expect(cn('text-red-500', 'text-blue-500')).toBe('text-blue-500');
+  });
+
+  it('handles undefined and null', () => {
+    expect(cn('foo', undefined, null, 'bar')).toBe('foo bar');
+  });
+});
+
+describe('formatDate', () => {
+  it('formats Date object', () => {
+    const date = new Date('2024-03-15');
+    expect(formatDate(date)).toBe('Mar 15, 2024');
+  });
+
+  it('formats ISO string', () => {
+    expect(formatDate('2024-03-15T00:00:00Z')).toBe('Mar 15, 2024');
+  });
+
+  it('handles different months', () => {
+    expect(formatDate('2024-01-01')).toContain('Jan');
+    expect(formatDate('2024-12-25')).toContain('Dec');
+  });
+});
+
+describe('formatRelativeTime', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-03-15T12:00:00Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('returns "just now" for recent times', () => {
+    const date = new Date('2024-03-15T11:59:30Z');
+    expect(formatRelativeTime(date)).toBe('just now');
+  });
+
+  it('returns minutes ago', () => {
+    const date = new Date('2024-03-15T11:45:00Z');
+    expect(formatRelativeTime(date)).toBe('15m ago');
+  });
+
+  it('returns hours ago', () => {
+    const date = new Date('2024-03-15T09:00:00Z');
+    expect(formatRelativeTime(date)).toBe('3h ago');
+  });
+
+  it('returns days ago', () => {
+    const date = new Date('2024-03-13T12:00:00Z');
+    expect(formatRelativeTime(date)).toBe('2d ago');
+  });
+
+  it('returns formatted date for older dates', () => {
+    const date = new Date('2024-03-01T12:00:00Z');
+    expect(formatRelativeTime(date)).toBe('Mar 1, 2024');
+  });
+
+  it('handles string input', () => {
+    expect(formatRelativeTime('2024-03-15T11:59:30Z')).toBe('just now');
+  });
+});
+
+describe('truncate', () => {
+  it('returns original string if shorter than maxLength', () => {
+    expect(truncate('hello', 10)).toBe('hello');
+  });
+
+  it('returns original string if equal to maxLength', () => {
+    expect(truncate('hello', 5)).toBe('hello');
+  });
+
+  it('truncates and adds ellipsis', () => {
+    expect(truncate('hello world', 8)).toBe('hello...');
+  });
+
+  it('handles very short maxLength', () => {
+    expect(truncate('hello', 4)).toBe('h...');
+  });
+
+  it('handles empty string', () => {
+    expect(truncate('', 10)).toBe('');
+  });
+});
+```
+
+### 18. apps/web/tests/lib/api-client.test.ts
+
+```typescript
+/**
+ * API client tests.
+ */
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { ApiClient, ApiClientError } from '@/lib/api/client';
+
+describe('ApiClient', () => {
+  let client: ApiClient;
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    client = new ApiClient('/api');
+    fetchMock = vi.fn();
+    global.fetch = fetchMock;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe('get', () => {
+    it('makes GET request', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: 'test' }),
+      });
+
+      const result = await client.get('/users');
+
+      expect(fetchMock).toHaveBeenCalledWith('/api/users', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      expect(result).toEqual({ data: 'test' });
+    });
+  });
+
+  describe('post', () => {
+    it('makes POST request with body', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: '123' }),
+      });
+
+      const result = await client.post('/users', { name: 'Test' });
+
+      expect(fetchMock).toHaveBeenCalledWith('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Test' }),
+      });
+      expect(result).toEqual({ id: '123' });
+    });
+
+    it('makes POST request without body', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true }),
+      });
+
+      await client.post('/action');
+
+      expect(fetchMock).toHaveBeenCalledWith('/api/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: undefined,
+      });
+    });
+  });
+
+  describe('put', () => {
+    it('makes PUT request', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ updated: true }),
+      });
+
+      await client.put('/users/123', { name: 'Updated' });
+
+      expect(fetchMock).toHaveBeenCalledWith('/api/users/123', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Updated' }),
+      });
+    });
+  });
+
+  describe('delete', () => {
+    it('makes DELETE request', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ deleted: true }),
+      });
+
+      await client.delete('/users/123');
+
+      expect(fetchMock).toHaveBeenCalledWith('/api/users/123', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+  });
+
+  describe('error handling', () => {
+    it('throws ApiClientError for API errors', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: () => Promise.resolve({
+          error: {
+            message: 'Validation failed',
+            code: 'VALIDATION_ERROR',
+            details: { field: 'email' },
+          },
+        }),
+      });
+
+      await expect(client.get('/users')).rejects.toThrow(ApiClientError);
+
+      try {
+        await client.get('/users');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ApiClientError);
+        const apiError = error as ApiClientError;
+        expect(apiError.message).toBe('Validation failed');
+        expect(apiError.code).toBe('VALIDATION_ERROR');
+        expect(apiError.status).toBe(400);
+        expect(apiError.details).toEqual({ field: 'email' });
+      }
+    });
+
+    it('throws generic error for non-API errors', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({ unexpected: 'format' }),
+      });
+
+      await expect(client.get('/users')).rejects.toThrow('An unexpected error occurred');
+    });
+  });
+});
+
+describe('ApiClientError', () => {
+  it('has correct properties', () => {
+    const error = new ApiClientError('Test error', 'TEST_CODE', 400, { key: 'value' });
+
+    expect(error.message).toBe('Test error');
+    expect(error.code).toBe('TEST_CODE');
+    expect(error.status).toBe(400);
+    expect(error.details).toEqual({ key: 'value' });
+    expect(error.name).toBe('ApiClientError');
+  });
+
+  it('is instanceof Error', () => {
+    const error = new ApiClientError('Test', 'CODE', 400);
+    expect(error).toBeInstanceOf(Error);
+  });
+});
+```
+
+---
+
+## Updated Verification
+
+After creating all files including component tests, run:
+
+```bash
+node Masterguide/scaffolding/scripts/verify-phase.js 11
+```
+
+**Additional manual checks:**
+
+```bash
+# 1. Install test dependencies
+cd apps/web
+pnpm add -D @vitejs/plugin-react @testing-library/react @testing-library/jest-dom jsdom
+
+# 2. Run component tests
+pnpm test
+
+# 3. Run with coverage
+pnpm test -- --coverage
+```
+
+**Updated Success Criteria**:
+- [ ] All original criteria pass
+- [ ] Button component tests pass
+- [ ] Input component tests pass
+- [ ] Card component tests pass
+- [ ] Utility function tests pass
+- [ ] API client tests pass
+- [ ] Test coverage > 80% for components
