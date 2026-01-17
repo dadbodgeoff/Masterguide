@@ -374,7 +374,30 @@ module.exports = {
 };
 ```
 
-### 12. apps/web/app/layout.tsx
+### 12. apps/web/eslint.config.mjs
+
+> **Next.js 16+ Requirement**: ESLint 9 uses flat config format. This file is required for `next lint` to work.
+
+```javascript
+import { dirname } from "path";
+import { fileURLToPath } from "url";
+import { FlatCompat } from "@eslint/eslintrc";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const compat = new FlatCompat({
+  baseDirectory: __dirname,
+});
+
+const eslintConfig = [
+  ...compat.extends("next/core-web-vitals", "next/typescript"),
+];
+
+export default eslintConfig;
+```
+
+### 13. apps/web/app/layout.tsx
 
 ```typescript
 import type { Metadata } from 'next';
@@ -398,7 +421,7 @@ export default function RootLayout({
 }
 ```
 
-### 13. apps/web/app/globals.css
+### 14. apps/web/app/globals.css
 
 ```css
 @tailwind base;
@@ -424,7 +447,7 @@ body {
 }
 ```
 
-### 14. apps/web/app/page.tsx
+### 15. apps/web/app/page.tsx
 
 ```typescript
 export default function Home() {
@@ -439,7 +462,7 @@ export default function Home() {
 }
 ```
 
-### 15. packages/types/package.json
+### 16. packages/types/package.json
 
 ```json
 {
@@ -470,7 +493,7 @@ export default function Home() {
 }
 ```
 
-### 16. packages/types/tsconfig.json
+### 17. packages/types/tsconfig.json
 
 ```json
 {
@@ -486,7 +509,7 @@ export default function Home() {
 }
 ```
 
-### 17. packages/types/src/index.ts
+### 18. packages/types/src/index.ts
 
 ```typescript
 /**
@@ -507,7 +530,7 @@ export * from './common';
 // export * from './api';
 ```
 
-### 18. packages/types/src/common.ts
+### 19. packages/types/src/common.ts
 
 ```typescript
 /**
@@ -569,7 +592,7 @@ export type Result<T, E = Error> =
   | { success: false; error: E };
 ```
 
-### 19. packages/backend/pyproject.toml
+### 20. packages/backend/pyproject.toml
 
 ```toml
 [project]
@@ -627,7 +650,7 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 ```
 
-### 20. packages/backend/src/__init__.py
+### 21. packages/backend/src/__init__.py
 
 ```python
 """
@@ -644,7 +667,7 @@ This package contains the FastAPI backend with:
 __version__ = "0.1.0"
 ```
 
-### 21. packages/backend/src/main.py
+### 22. packages/backend/src/main.py
 
 ```python
 """
@@ -684,7 +707,7 @@ async def health() -> dict[str, str]:
     return {"status": "healthy"}
 ```
 
-### 22. packages/backend/Dockerfile
+### 23. packages/backend/Dockerfile
 
 ```dockerfile
 FROM python:3.11-slim
@@ -714,7 +737,7 @@ EXPOSE 8000
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
-### 23. supabase/config.toml
+### 24. supabase/config.toml
 
 ```toml
 [api]
@@ -748,7 +771,7 @@ double_confirm_changes = true
 enable_confirmations = true
 ```
 
-### 24. README.md (Root)
+### 25. README.md (Root)
 
 ```markdown
 # SaaS Project
@@ -892,7 +915,7 @@ Proceed to [02-ENVIRONMENT.md](./02-ENVIRONMENT.md) for environment configuratio
 
 > These artifacts establish the testing infrastructure, CI pipeline, and developer tooling that all subsequent phases build upon.
 
-### 25. packages/backend/conftest.py
+### 26. packages/backend/conftest.py
 
 ```python
 """
@@ -1026,13 +1049,13 @@ def auth_headers(test_user: dict[str, Any]) -> dict[str, str]:
     }
 ```
 
-### 26. packages/backend/tests/__init__.py
+### 27. packages/backend/tests/__init__.py
 
 ```python
 """Backend test package."""
 ```
 
-### 27. apps/web/vitest.config.ts
+### 28. apps/web/vitest.config.ts
 
 ```typescript
 import { defineConfig } from 'vitest/config';
@@ -1067,7 +1090,7 @@ export default defineConfig({
 });
 ```
 
-### 28. apps/web/tests/setup.ts
+### 29. apps/web/tests/setup.ts
 
 ```typescript
 /**
@@ -1106,7 +1129,7 @@ vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://test.supabase.co');
 vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'test-anon-key');
 ```
 
-### 29. apps/web/tests/utils.tsx
+### 30. apps/web/tests/utils.tsx
 
 ```typescript
 /**
@@ -1142,7 +1165,7 @@ export * from '@testing-library/react';
 export { customRender as render };
 ```
 
-### 30. .github/workflows/ci.yml
+### 31. .github/workflows/ci.yml
 
 ```yaml
 name: CI
@@ -1270,7 +1293,7 @@ jobs:
         run: pnpm build
 ```
 
-### 31. .pre-commit-config.yaml
+### 32. .pre-commit-config.yaml
 
 ```yaml
 # Pre-commit hooks configuration
@@ -1321,7 +1344,7 @@ repos:
         pass_filenames: false
 ```
 
-### 32. docs/adr/000-template.md
+### 33. docs/adr/000-template.md
 
 ```markdown
 # ADR-000: [Title]
@@ -1360,7 +1383,7 @@ What becomes easier or more difficult to do because of this change?
 - [Link to related ADRs]
 ```
 
-### 33. docs/adr/001-monorepo-structure.md
+### 34. docs/adr/001-monorepo-structure.md
 
 ```markdown
 # ADR-001: Monorepo with Turborepo and pnpm
